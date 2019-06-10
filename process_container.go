@@ -3,10 +3,8 @@ package process
 import "sort"
 
 type (
-	// TODO - rename process container
-
-	// Container is a collection of initializers and processes.
-	Container interface {
+	// ProcessContainer is a collection of initializers and processes.
+	ProcessContainer interface {
 		// RegisterInitializer adds an initializer to the container
 		// with the given configuration.
 		RegisterInitializer(Initializer, ...InitializerConfigFunc)
@@ -44,8 +42,8 @@ type (
 	}
 )
 
-// NewContainer creates an empty process container.
-func NewContainer() Container {
+// NewProcessContainer creates an empty process container.
+func NewProcessContainer() ProcessContainer {
 	return &container{
 		initializers: []*InitializerMeta{},
 		processes:    map[int][]*ProcessMeta{},

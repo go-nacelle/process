@@ -17,7 +17,7 @@ type RunnerSuite struct{}
 func (s *RunnerSuite) TestRunOrder(t sweet.T) {
 	var (
 		services  = service.NewServiceContainer()
-		processes = NewContainer()
+		processes = NewProcessContainer()
 		health    = NewHealth()
 		runner    = NewRunner(processes, services, health)
 		init      = make(chan string)
@@ -113,7 +113,7 @@ func (s *RunnerSuite) TestRunOrder(t sweet.T) {
 func (s *RunnerSuite) TestEarlyExit(t sweet.T) {
 	var (
 		services  = service.NewServiceContainer()
-		processes = NewContainer()
+		processes = NewProcessContainer()
 		health    = NewHealth()
 		runner    = NewRunner(processes, services, health)
 		init      = make(chan string)
@@ -159,7 +159,7 @@ func (s *RunnerSuite) TestEarlyExit(t sweet.T) {
 func (s *RunnerSuite) TestSilentExit(t sweet.T) {
 	var (
 		services  = service.NewServiceContainer()
-		processes = NewContainer()
+		processes = NewProcessContainer()
 		health    = NewHealth()
 		runner    = NewRunner(processes, services, health)
 		init      = make(chan string)
@@ -194,7 +194,7 @@ func (s *RunnerSuite) TestSilentExit(t sweet.T) {
 func (s *RunnerSuite) TestShutdownTimeout(t sweet.T) {
 	var (
 		services     = service.NewServiceContainer()
-		processes    = NewContainer()
+		processes    = NewProcessContainer()
 		health       = NewHealth()
 		clock        = glock.NewMockClock()
 		runner       = NewRunner(processes, services, health, WithClock(clock))
@@ -229,7 +229,7 @@ func (s *RunnerSuite) TestShutdownTimeout(t sweet.T) {
 func (s *RunnerSuite) TestProcessStartTimeout(t sweet.T) {
 	var (
 		services  = service.NewServiceContainer()
-		processes = NewContainer()
+		processes = NewProcessContainer()
 		health    = NewHealth()
 		clock     = glock.NewMockClock()
 		init      = make(chan string)
@@ -302,7 +302,7 @@ func (s *RunnerSuite) TestProcessStartTimeout(t sweet.T) {
 func (s *RunnerSuite) TestProcessShutdownTimeout(t sweet.T) {
 	var (
 		services  = service.NewServiceContainer()
-		processes = NewContainer()
+		processes = NewProcessContainer()
 		health    = NewHealth()
 		clock     = glock.NewMockClock()
 		runner    = NewRunner(processes, services, health, WithClock(clock))
@@ -357,7 +357,7 @@ func (s *RunnerSuite) TestProcessShutdownTimeout(t sweet.T) {
 func (s *RunnerSuite) TestInitializerInjectionError(t sweet.T) {
 	var (
 		services  = service.NewServiceContainer()
-		processes = NewContainer()
+		processes = NewProcessContainer()
 		health    = NewHealth()
 		runner    = NewRunner(processes, services, health)
 		init      = make(chan string)
@@ -405,7 +405,7 @@ func (s *RunnerSuite) TestInitializerInjectionError(t sweet.T) {
 func (s *RunnerSuite) TestProcessInjectionError(t sweet.T) {
 	var (
 		services  = service.NewServiceContainer()
-		processes = NewContainer()
+		processes = NewProcessContainer()
 		health    = NewHealth()
 		runner    = NewRunner(processes, services, health)
 		init      = make(chan string)
@@ -466,7 +466,7 @@ func (s *RunnerSuite) TestProcessInjectionError(t sweet.T) {
 func (s *RunnerSuite) TestInitializerInitTimeout(t sweet.T) {
 	var (
 		services  = service.NewServiceContainer()
-		processes = NewContainer()
+		processes = NewProcessContainer()
 		health    = NewHealth()
 		clock     = glock.NewMockClock()
 		runner    = NewRunner(processes, services, health, WithClock(clock))
@@ -503,7 +503,7 @@ func (s *RunnerSuite) TestInitializerInitTimeout(t sweet.T) {
 func (s *RunnerSuite) TestFinalizerFinalizeTimeout(t sweet.T) {
 	var (
 		services  = service.NewServiceContainer()
-		processes = NewContainer()
+		processes = NewProcessContainer()
 		health    = NewHealth()
 		clock     = glock.NewMockClock()
 		runner    = NewRunner(processes, services, health, WithClock(clock))
@@ -555,7 +555,7 @@ func (s *RunnerSuite) TestFinalizerFinalizeTimeout(t sweet.T) {
 func (s *RunnerSuite) TestFinalizerError(t sweet.T) {
 	var (
 		services  = service.NewServiceContainer()
-		processes = NewContainer()
+		processes = NewProcessContainer()
 		health    = NewHealth()
 		runner    = NewRunner(processes, services, health)
 		init      = make(chan string)
@@ -613,7 +613,7 @@ func (s *RunnerSuite) TestFinalizerError(t sweet.T) {
 func (s *RunnerSuite) TestProcessInitTimeout(t sweet.T) {
 	var (
 		services  = service.NewServiceContainer()
-		processes = NewContainer()
+		processes = NewProcessContainer()
 		health    = NewHealth()
 		clock     = glock.NewMockClock()
 		runner    = NewRunner(processes, services, health, WithClock(clock))
@@ -652,7 +652,7 @@ func (s *RunnerSuite) TestProcessInitTimeout(t sweet.T) {
 func (s *RunnerSuite) TestInitializerError(t sweet.T) {
 	var (
 		services  = service.NewServiceContainer()
-		processes = NewContainer()
+		processes = NewProcessContainer()
 		health    = NewHealth()
 		runner    = NewRunner(processes, services, health)
 		init      = make(chan string)
@@ -705,7 +705,7 @@ func (s *RunnerSuite) TestInitializerError(t sweet.T) {
 func (s *RunnerSuite) TestProcessInitError(t sweet.T) {
 	var (
 		services  = service.NewServiceContainer()
-		processes = NewContainer()
+		processes = NewProcessContainer()
 		health    = NewHealth()
 		runner    = NewRunner(processes, services, health)
 		init      = make(chan string)
@@ -777,7 +777,7 @@ func (s *RunnerSuite) TestProcessInitError(t sweet.T) {
 func (s *RunnerSuite) TestProcessStartError(t sweet.T) {
 	var (
 		services  = service.NewServiceContainer()
-		processes = NewContainer()
+		processes = NewProcessContainer()
 		health    = NewHealth()
 		runner    = NewRunner(processes, services, health)
 		init      = make(chan string)
@@ -868,7 +868,7 @@ func (s *RunnerSuite) TestProcessStartError(t sweet.T) {
 func (s *RunnerSuite) TestProcessStopError(t sweet.T) {
 	var (
 		services  = service.NewServiceContainer()
-		processes = NewContainer()
+		processes = NewProcessContainer()
 		health    = NewHealth()
 		runner    = NewRunner(processes, services, health)
 		init      = make(chan string)

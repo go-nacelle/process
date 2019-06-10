@@ -37,7 +37,7 @@ type (
 	}
 
 	runner struct {
-		processes          Container
+		processes          ProcessContainer
 		services           service.ServiceContainer
 		health             Health
 		watcher            *processWatcher
@@ -73,7 +73,7 @@ type (
 // NewRunner creates a process runner from the given process and service
 // containers.
 func NewRunner(
-	processes Container,
+	processes ProcessContainer,
 	services service.ServiceContainer,
 	health Health,
 	runnerConfigs ...RunnerConfigFunc,

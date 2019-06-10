@@ -10,14 +10,14 @@ import (
 	"github.com/go-nacelle/config"
 )
 
-type ContainerSuite struct{}
+type ProcessContainerSuite struct{}
 
-func (s *ContainerSuite) TestInitializers(t sweet.T) {
+func (s *ProcessContainerSuite) TestInitializers(t sweet.T) {
 	i1 := InitializerFunc(func(config.Config) error { return fmt.Errorf("a") })
 	i2 := InitializerFunc(func(config.Config) error { return fmt.Errorf("b") })
 	i3 := InitializerFunc(func(config.Config) error { return fmt.Errorf("c") })
 
-	c := NewContainer()
+	c := NewProcessContainer()
 	c.RegisterInitializer(i1)
 	c.RegisterInitializer(i2, WithInitializerName("b"))
 	c.RegisterInitializer(i3, WithInitializerName("c"), WithInitializerTimeout(time.Minute*2))
@@ -41,8 +41,8 @@ func (s *ContainerSuite) TestInitializers(t sweet.T) {
 	Expect(initializers[2].Initializer.Init(nil)).Should(MatchError("c"))
 }
 
-func (s *ContainerSuite) TestProcesses(t sweet.T) {
-	c := NewContainer()
+func (s *ProcessContainerSuite) TestProcesses(t sweet.T) {
+	c := NewProcessContainer()
 	c.RegisterProcess(newInitFailProcess("a"))
 	c.RegisterProcess(newInitFailProcess("b"), WithProcessName("b"), WithPriority(5))
 	c.RegisterProcess(newInitFailProcess("c"), WithProcessName("c"), WithPriority(2))
