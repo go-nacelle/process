@@ -5,5 +5,5 @@ jobs:
       - image: circleci/golang:1.12
     steps:
       - checkout
-      - run: go get go get github.com/mattn/goveralls
+      - run: go get github.com/mattn/goveralls
       - run: goveralls -package=./... -v -race -covermode=atomic -service=circle-ci
