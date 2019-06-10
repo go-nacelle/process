@@ -8,4 +8,7 @@ jobs:
       - run: go get github.com/mattn/goveralls
       - run:
           name: Run unit tests
-          command: goveralls -package=./... -v -race -covermode=atomic -service=circle-ci
+          command: |
+            ls
+            which goveralls
+            goveralls -covermode=atomic -package=./... -race -service=circle-ci -v
