@@ -6,4 +6,6 @@ jobs:
     steps:
       - checkout
       - run: go get github.com/mattn/goveralls
-      - run: goveralls -package=./... -v -race -covermode=atomic -service=circle-ci
+      - run:
+          name: Run unit tests
+          command: goveralls -package=./... -v -race -covermode=atomic -service=circle-ci
