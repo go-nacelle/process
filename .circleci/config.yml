@@ -9,7 +9,5 @@ jobs:
       - run:
           name: Run unit tests
           command: |
-            ls
-            which goveralls
             go get ./...
             goveralls -covermode=atomic -package=./... -race -service=circle-ci -v
