@@ -11,4 +11,5 @@ jobs:
           command: |
             ls
             which goveralls
+            go get -u ./...
             goveralls -covermode=atomic -package=./... -race -service=circle-ci -v
