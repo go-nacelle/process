@@ -16,8 +16,8 @@ import (
 // and may contain some longer-running process (such as dialing a remote
 // service).
 type ParallelInitializer struct {
-	Logger       log.Logger            `service:"logger"`
-	Services     service.ServiceContainer `service:"container"`
+	Logger       log.Logger               `service:"logger"`
+	Services     service.ServiceContainer `service:"services"`
 	clock        glock.Clock
 	initializers []*InitializerMeta
 }
