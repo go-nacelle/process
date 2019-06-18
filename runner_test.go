@@ -246,8 +246,8 @@ func (s *RunnerSuite) TestProcessStartTimeout(t sweet.T) {
 	)
 
 	// Stop the process from going healthy
-	health.AddReason("utoh1")
-	health.AddReason("utoh2")
+	health.AddReason("oops1")
+	health.AddReason("oops2")
 
 	var (
 		p1 = newTaggedProcess(init, start, stop, "a")
@@ -295,8 +295,8 @@ func (s *RunnerSuite) TestProcessStartTimeout(t sweet.T) {
 	// Check error message
 	Expect(err).NotTo(BeNil())
 	Expect(err.Error()).To(ContainSubstring("process did not become healthy within timeout"))
-	Expect(err.Error()).To(ContainSubstring("utoh1"))
-	Expect(err.Error()).To(ContainSubstring("utoh2"))
+	Expect(err.Error()).To(ContainSubstring("oops1"))
+	Expect(err.Error()).To(ContainSubstring("oops2"))
 }
 
 func (s *RunnerSuite) TestProcessShutdownTimeout(t sweet.T) {
@@ -574,9 +574,9 @@ func (s *RunnerSuite) TestFinalizerError(t sweet.T) {
 	processes.RegisterInitializer(i2, WithInitializerName("b"))
 	processes.RegisterInitializer(i3, WithInitializerName("c"))
 
-	i1.finalizeErr = fmt.Errorf("utoh x")
-	i2.finalizeErr = fmt.Errorf("utoh y")
-	i3.finalizeErr = fmt.Errorf("utoh z")
+	i1.finalizeErr = fmt.Errorf("oops x")
+	i2.finalizeErr = fmt.Errorf("oops y")
+	i3.finalizeErr = fmt.Errorf("oops z")
 
 	go func() {
 		defer close(errChan)
@@ -604,9 +604,9 @@ func (s *RunnerSuite) TestFinalizerError(t sweet.T) {
 	Eventually(errChan).Should(BeClosed())
 
 	Expect([]string{err1.Error(), err2.Error(), err3.Error()}).To(ConsistOf(
-		"c returned error from finalize (utoh z)",
-		"b returned error from finalize (utoh y)",
-		"a returned error from finalize (utoh x)",
+		"c returned error from finalize (oops z)",
+		"b returned error from finalize (oops y)",
+		"a returned error from finalize (oops x)",
 	))
 }
 
@@ -669,7 +669,7 @@ func (s *RunnerSuite) TestInitializerError(t sweet.T) {
 		p1 = newTaggedProcess(init, start, stop, "d")
 	)
 
-	i2.initErr = fmt.Errorf("utoh")
+	i2.initErr = fmt.Errorf("oopss")
 
 	// Register things
 	processes.RegisterInitializer(i1)
@@ -693,7 +693,7 @@ func (s *RunnerSuite) TestInitializerError(t sweet.T) {
 	Expect(n1).To(Equal("a"))
 
 	// Ensure error is encountered
-	Eventually(errChan).Should(Receive(MatchError("failed to initialize b (utoh)")))
+	Eventually(errChan).Should(Receive(MatchError("failed to initialize b (oops)")))
 
 	// Nothing else called
 	Consistently(init).ShouldNot(Receive())
@@ -735,7 +735,7 @@ func (s *RunnerSuite) TestProcessInitError(t sweet.T) {
 	processes.RegisterProcess(p4, WithPriority(2))
 	processes.RegisterProcess(p5, WithPriority(3))
 
-	p3.initErr = fmt.Errorf("utoh")
+	p3.initErr = fmt.Errorf("oops")
 
 	go func() {
 		defer close(errChan)
@@ -760,7 +760,7 @@ func (s *RunnerSuite) TestProcessInitError(t sweet.T) {
 
 	var err error
 	Eventually(errChan).Should(Receive(&err))
-	Expect(err).To(MatchError("failed to initialize f (utoh)"))
+	Expect(err).To(MatchError("failed to initialize f (oops)"))
 
 	Consistently(init).ShouldNot(Receive())
 
@@ -806,7 +806,7 @@ func (s *RunnerSuite) TestProcessStartError(t sweet.T) {
 	processes.RegisterProcess(p4, WithPriority(2))
 	processes.RegisterProcess(p5, WithPriority(3), WithProcessName("h"))
 
-	p3.startErr = fmt.Errorf("utoh")
+	p3.startErr = fmt.Errorf("oops")
 
 	var (
 		n1, n2, n3, n4 string
@@ -861,7 +861,7 @@ func (s *RunnerSuite) TestProcessStartError(t sweet.T) {
 
 	Expect([]string{err1.Error(), err2.Error()}).To(ConsistOf(
 		"aborting initialization of h",
-		"f returned a fatal error (utoh)",
+		"f returned a fatal error (oops)",
 	))
 }
 
@@ -898,9 +898,9 @@ func (s *RunnerSuite) TestProcessStopError(t sweet.T) {
 	processes.RegisterProcess(p4, WithProcessName("g"), WithPriority(3))
 	processes.RegisterProcess(p5, WithProcessName("h"))
 
-	p1.stopErr = fmt.Errorf("utoh x")
-	p3.stopErr = fmt.Errorf("utoh y")
-	p5.stopErr = fmt.Errorf("utoh z")
+	p1.stopErr = fmt.Errorf("oops x")
+	p3.stopErr = fmt.Errorf("oops y")
+	p5.stopErr = fmt.Errorf("oops z")
 
 	go func() {
 		defer close(errChan)
@@ -936,9 +936,9 @@ func (s *RunnerSuite) TestProcessStopError(t sweet.T) {
 	Eventually(errChan).Should(BeClosed())
 
 	Expect([]string{err1.Error(), err2.Error(), err3.Error()}).To(ConsistOf(
-		"d returned error from stop (utoh x)",
-		"f returned error from stop (utoh y)",
-		"h returned error from stop (utoh z)",
+		"d returned error from stop (oopss x)",
+		"f returned error from stop (oops y)",
+		"h returned error from stop (oops z)",
 	))
 }
 

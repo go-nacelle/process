@@ -74,9 +74,9 @@ func (s *ParallelInitializerSuite) TestInitError(t sweet.T) {
 	pi.RegisterInitializer(i3, WithInitializerName("c"))
 	pi.RegisterInitializer(i4, WithInitializerName("d"))
 
-	i2.initErr = fmt.Errorf("utoh y")
-	i3.initErr = fmt.Errorf("utoh z")
-	i4.finalizeErr = fmt.Errorf("utoh w")
+	i2.initErr = fmt.Errorf("oops y")
+	i3.initErr = fmt.Errorf("oops z")
+	i4.finalizeErr = fmt.Errorf("oops w")
 
 	WithInitializerName("a")(m1)
 	WithInitializerName("b")(m2)
@@ -85,9 +85,9 @@ func (s *ParallelInitializerSuite) TestInitError(t sweet.T) {
 
 	err := pi.Init(nil)
 	Expect(err).To(ConsistOf(
-		errMeta{err: fmt.Errorf("failed to initialize b (utoh y)"), source: m2},
-		errMeta{err: fmt.Errorf("failed to initialize c (utoh z)"), source: m3},
-		errMeta{err: fmt.Errorf("d returned error from finalize (utoh w)"), source: m4},
+		errMeta{err: fmt.Errorf("failed to initialize b (oops y)"), source: m2},
+		errMeta{err: fmt.Errorf("failed to initialize c (oops z)"), source: m3},
+		errMeta{err: fmt.Errorf("d returned error from finalize (oops w)"), source: m4},
 	))
 
 	var n1, n2, n3, n4 string
@@ -162,9 +162,9 @@ func (s *ParallelInitializerSuite) TestFinalizeError(t sweet.T) {
 	pi.RegisterInitializer(i2, WithInitializerName("b"))
 	pi.RegisterInitializer(i3, WithInitializerName("c"))
 
-	i1.finalizeErr = fmt.Errorf("utoh x")
-	i2.finalizeErr = fmt.Errorf("utoh y")
-	i3.finalizeErr = fmt.Errorf("utoh z")
+	i1.finalizeErr = fmt.Errorf("oops x")
+	i2.finalizeErr = fmt.Errorf("oops y")
+	i3.finalizeErr = fmt.Errorf("oops z")
 
 	WithInitializerName("a")(m1)
 	WithInitializerName("b")(m2)
@@ -172,9 +172,9 @@ func (s *ParallelInitializerSuite) TestFinalizeError(t sweet.T) {
 
 	err := pi.Finalize()
 	Expect(err).To(ConsistOf(
-		errMeta{err: fmt.Errorf("a returned error from finalize (utoh x)"), source: m1},
-		errMeta{err: fmt.Errorf("b returned error from finalize (utoh y)"), source: m2},
-		errMeta{err: fmt.Errorf("c returned error from finalize (utoh z)"), source: m3},
+		errMeta{err: fmt.Errorf("a returned error from finalize (oops x)"), source: m1},
+		errMeta{err: fmt.Errorf("b returned error from finalize (oops y)"), source: m2},
+		errMeta{err: fmt.Errorf("c returned error from finalize (oops z)"), source: m3},
 	))
 
 	var n1, n2, n3 string

@@ -51,8 +51,8 @@ func (s *WatcherSuite) TestFatalErrorBeginsShutdown(t sweet.T) {
 	Consistently(outChan).ShouldNot(Receive())
 	Consistently(watcher.shutdownSignal).ShouldNot(BeClosed())
 
-	errChan <- errMeta{fmt.Errorf("utoh"), makeNamedInitializer("c"), true}
-	Eventually(outChan).Should(Receive(MatchError("utoh")))
+	errChan <- errMeta{fmt.Errorf("oops"), makeNamedInitializer("c"), true}
+	Eventually(outChan).Should(Receive(MatchError("oops")))
 	Eventually(watcher.shutdownSignal).Should(BeClosed())
 	Consistently(outChan).ShouldNot(Receive())
 

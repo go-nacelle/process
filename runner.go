@@ -154,7 +154,7 @@ func (r *runner) runInitializers(config config.Config) bool {
 
 		if err := r.initWithTimeout(initializer, config); err != nil {
 			_ = r.unwindInitializers(i)
-			// Parallel initialziers may return multiple errors, so
+			// Parallel initializers may return multiple errors, so
 			// we return all of them here. This check if asymmetric
 			// as there is no equivalent for processes.
 			for _, err := range coerceToSet(err, initializer) {
@@ -181,7 +181,7 @@ func (r *runner) unwindInitializers(beforeIndex int) bool {
 
 	for i := beforeIndex - 1; i >= 0; i-- {
 		if err := r.finalizeWithTimeout(initializers[i]); err != nil {
-			// Parallel initialziers may return multiple errors, so
+			// Parallel initializers may return multiple errors, so
 			// we return all of them here. This check if asymmetric
 			// as there is no equivalent for processes.
 			for _, err := range coerceToSet(err, initializers[i]) {
