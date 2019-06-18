@@ -42,9 +42,9 @@ func (i *DatabaseInitializer) Init(config nacelle.Config) error {
 }
 ```
 
-An initializer can also be a **finalizer** if it defines a `Finalize` method. This can be useful for initializers that need to do some cleanup action before the application shuts down such as closing a log or profile file, closing remote conections, or ensuring that certain buffers get flushed before the application ends.
+An initializer can also be a **finalizer** if it defines a `Finalize` method. This can be useful for initializers that need to do some cleanup action before the application shuts down such as closing a log or profile file, closing remote connections, or ensuring that certain buffers get flushed before the application ends.
 
-A **process** is a struct with a `Start` and a `Stop` method. For long-running processes, such as servers, the start method should be blocking. The stop method may signal the process to gracefully shut-down (via a channel or synchronization primitive), but does not need to wait until the application exits. A process is also an initializer, so the above also applies. The following example uses the database connection created by the initializer above, injected by the service container, and pings it on a loop and logs its latency. The stop method closes a channel to inform the start metehod to unblock.
+A **process** is a struct with a `Start` and a `Stop` method. For long-running processes, such as servers, the start method should be blocking. The stop method may signal the process to gracefully shut-down (via a channel or synchronization primitive), but does not need to wait until the application exits. A process is also an initializer, so the above also applies. The following example uses the database connection created by the initializer above, injected by the service container, and pings it on a loop and logs its latency. The stop method closes a channel to inform the start method to unblock.
 
 ```go
 type PingProcess struct {
@@ -119,10 +119,10 @@ The following options can be set on a process during registration.
 
 - **WithProcessName** sets the name of the process in log messages.
 - **WithPriority** sets the priority group the process belongs to. Processes of the same - priority are initialized and started in parallel.
-- **WithSilentExit** sets a flag that allows a nil error value to be returned without signaling an application shutdown. This can be useful for things like leader election on startup which should not stop hot standby procesess from taking client requests.
+- **WithSilentExit** sets a flag that allows a nil error value to be returned without signaling an application shutdown. This can be useful for things like leader election on startup which should not stop hot standby processes from taking client requests.
 - **WithProcessInitTimeout** sets the maximum time that the process can spend in its Init method.
 - **WithProcessStartTimeout** sets the maximum time that the process can spend *unhealthy* after its Start method is called. See [health](#Health) below.
-- **WithProcessShutdownTimeout** sets the maximum time that the process can spend waiting for its Start method to unblcok after its Stop method is called.
+- **WithProcessShutdownTimeout** sets the maximum time that the process can spend waiting for its Start method to unblock after its Stop method is called.
 
 The following options can be set for the runner itself. Again, these configuration options be supplied through the nacelle bootstrapper.
 
@@ -170,7 +170,7 @@ func setupProcesses(processes nacelle.ProcessContainer, services nacelle.Service
 
 Initializers are run one at a time in the order in which they are registered. This guarantees that any service created by an initializer registered previously will be available to all later initializers and processes.
 
-When initializers can be run independently (for example, creating multiple SDK client instances for a list of AWS services), it is unnecessary to run them in sequence. Groups of such services can be registered to a `ParallelInitializer`, which will run all of its initializers in parallel. The initializer will block its sibling suntil all of its initializers complete.
+When initializers can be run independently (for example, creating multiple SDK client instances for a list of AWS services), it is unnecessary to run them in sequence. Groups of such services can be registered to a `ParallelInitializer`, which will run all of its initializers in parallel. The initializer will block its siblings until all of its initializers complete.
 
 ```go
 awsGroup := nacelle.NewParallelInitializer()
@@ -184,7 +184,7 @@ processes.RegisterInitializer(awsGroup, nacelle.WithInitializerName("aws"))
 
 ### Health
 
-This library defines a `Health` struct that simply tracks a list of *reasons* that an appliaction is not yet fully healthy. Once this list is empty, the application should be fully functional. The runner ensure that processes are both *live* (yet to fail) and *healthy*. The later property must be defined per process. A process that does not interact with the health instance is assumed to be healthy when it is live. Usage of a global health instance should be used as follows.
+This library defines a `Health` struct that simply tracks a list of *reasons* that an application is not yet fully healthy. Once this list is empty, the application should be fully functional. The runner ensure that processes are both *live* (yet to fail) and *healthy*. The later property must be defined per process. A process that does not interact with the health instance is assumed to be healthy when it is live. Usage of a global health instance should be used as follows.
 
 ```go
 type HealthConsciousProcess struct {
