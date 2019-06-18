@@ -669,7 +669,7 @@ func (s *RunnerSuite) TestInitializerError(t sweet.T) {
 		p1 = newTaggedProcess(init, start, stop, "d")
 	)
 
-	i2.initErr = fmt.Errorf("oopss")
+	i2.initErr = fmt.Errorf("oops")
 
 	// Register things
 	processes.RegisterInitializer(i1)
@@ -936,7 +936,7 @@ func (s *RunnerSuite) TestProcessStopError(t sweet.T) {
 	Eventually(errChan).Should(BeClosed())
 
 	Expect([]string{err1.Error(), err2.Error(), err3.Error()}).To(ConsistOf(
-		"d returned error from stop (oopss x)",
+		"d returned error from stop (oops x)",
 		"f returned error from stop (oops y)",
 		"h returned error from stop (oops z)",
 	))
