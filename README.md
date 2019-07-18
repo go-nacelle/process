@@ -4,13 +4,13 @@ Process initializer and supervisor for [nacelle](https://github.com/go-nacelle/n
 
 ---
 
-Applications written with nacelle can be composed into distinct categories. An **initializer** is something that runs once on application startup. These usually instantiate a [service](https://github.conm/go-nacelle/service) or set up shared state required by other parts of the application. A **process** is something that starts and runs continually throughout the life of the application. This may be a server, something that reacts to external events, or something that operates on internal timers. There is a special class of processes that are allowed to exit once running, but these are the exception.
+Applications written with nacelle can be composed into distinct categories. An **initializer** is something that runs once on application startup. These usually instantiate a [service](https://nacelle.dev/docs/core/service) or set up shared state required by other parts of the application. A **process** is something that starts and runs continually throughout the life of the application. This may be a server, something that reacts to external events, or something that operates on internal timers. There is a special class of processes that are allowed to exit once running, but these are the exception.
 
-This project also provides a set of abstract base processes for common process types: an [AWS Lambda event listener](https://github.com/go-nacelle/lambdabase), a [gRPC server](https://github.com/go-nacelle/grpcbase), an [HTTP server](https://github.com/go-nacelle/httpbase), and a [generic worker process](https://github.com/go-nacelle/workerbase)
+This project also provides a set of abstract base processes for common process types: an [AWS Lambda event listener](https://nacelle.dev/docs/libraries/lambdabase), a [gRPC server](https://nacelle.dev/docs/libraries/grpcbase), an [HTTP server](https://nacelle.dev/docs/libraries/httpbase), and a [generic worker process](https://nacelle.dev/docs/libraries/workerbase)
 
 ### Usage
 
-An **initializer** is a struct with an `Init` method that takes a [config](https://github.com/go-nacelle/config) object. Initializers should **not** perform long-running computation unless it is necessary for the startup of an application as they will block additional application startup. The following example creates a connection to a Postres database and stores it in a service container for subsequent initializers and processes to use.
+An **initializer** is a struct with an `Init` method that takes a [config](https://nacelle.dev/docs/core/config) object. Initializers should **not** perform long-running computation unless it is necessary for the startup of an application as they will block additional application startup. The following example creates a connection to a Postres database and stores it in a service container for subsequent initializers and processes to use.
 
 ```go
 import (
@@ -103,7 +103,7 @@ func (p *PingProcess) Stop() error {
 
 ### Registration
 
-Initializers and processes are registered to a `ProcessContainer` which is subsequently used by a runner in order to ensure the correct initialization order. The runner should not be used directly -- instead, use the bootstrapper in [nacelle](https://github.com/go-nacelle/nacelle).
+Initializers and processes are registered to a `ProcessContainer` which is subsequently used by a runner in order to ensure the correct initialization order. The bootstrapper [nacelle](https://nacelle.dev/docs/core) handles initialization and invocation of the runner.
 
 Initializers are run in sequence, one at a time, in the order that they are registered to the process container. If any initializer fails, then any previously successful initializers are finalized and the application exits with an error. Finalizers are run in the reverse order that they are initialized.
 
@@ -121,7 +121,7 @@ The following options can be set on a process during registration.
 - **WithPriority** sets the priority group the process belongs to. Processes of the same - priority are initialized and started in parallel.
 - **WithSilentExit** sets a flag that allows a nil error value to be returned without signaling an application shutdown. This can be useful for things like leader election on startup which should not stop hot standby processes from taking client requests.
 - **WithProcessInitTimeout** sets the maximum time that the process can spend in its Init method.
-- **WithProcessStartTimeout** sets the maximum time that the process can spend *unhealthy* after its Start method is called. See [health](#Health) below.
+- **WithProcessStartTimeout** sets the maximum time that the process can spend *unhealthy* after its Start method is called. See [health](#health) below.
 - **WithProcessShutdownTimeout** sets the maximum time that the process can spend waiting for its Start method to unblock after its Stop method is called.
 
 The following options can be set for the runner itself. Again, these configuration options be supplied through the nacelle bootstrapper.
@@ -184,7 +184,7 @@ processes.RegisterInitializer(awsGroup, nacelle.WithInitializerName("aws"))
 
 ### Health
 
-This library defines a `Health` struct that simply tracks a list of *reasons* that an application is not yet fully healthy. Once this list is empty, the application should be fully functional. The runner ensure that processes are both *live* (yet to fail) and *healthy*. The later property must be defined per process. A process that does not interact with the health instance is assumed to be healthy when it is live. Usage of a global health instance should be used as follows.
+A `Health` struct is provided that simply tracks a list of *reasons* that an application is not yet fully healthy. Once this list is empty, the application should be fully functional. The runner ensure that processes are both *live* (yet to fail) and *healthy*. The later property must be defined per process. A process that does not interact with the health instance is assumed to be healthy when it is live. Usage of a global health instance should be used as follows.
 
 ```go
 type HealthConsciousProcess struct {
