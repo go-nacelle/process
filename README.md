@@ -25,7 +25,7 @@ You can see additional examples of initializer and process definition and regist
 
 ### Process Definition
 
-A **process** is a struct with an `Init`, a `Start`, and a `Stop` method. The initialization method that takes a [config](https://nacelle.dev/docs/core/config) object as a parameter. Each method may return an error value. For long-running processes, such as servers, the start method should be blocking. The stop method may signal the process to gracefully shut-down (via a channel or synchronization primitive), but does not need to wait until the application exits. A process is also an initializer, so the above also applies. The following example uses the database connection created by the initializer above, injected by the service container, and pings it on a loop and logs its latency. The stop method closes a channel to inform the start method to unblock.
+A **process** is a struct with an `Init`, a `Start`, and a `Stop` method. The initialization method that takes a [config](https://nacelle.dev/docs/core/config) object as a parameter. Each method may return an error value. For long-running processes, such as servers, the start method should be blocking. The stop method may signal the process to gracefully shut-down (via a channel or synchronization primitive), but does not need to wait until the application exits. A process is also an initializer, so the above also applies. The following example uses the database connection created by the initializer defined [below](https://nacelle.dev/docs/core/process#initializer-definition), injected by the service container, and pings it on a loop to logs its latency. The stop method closes a channel to inform the start method to unblock.
 
 ```go
 type PingProcess struct {
@@ -126,7 +126,7 @@ func (p *HealthConsciousProcess) Stop() error {
 
 ### Initializer Definition
 
-An **initializer** is a struct with an `Init` method that takes a [config](https://nacelle.dev/docs/core/config) object and may return an error value. Initializers should **not** perform long-running computation unless it is necessary for the startup of an application as they will block additional application startup. The following example creates a connection to a Postres database and stores it in a service container for subsequent initializers and processes to use.
+An **initializer** is a struct with an `Init` method that takes a [config](https://nacelle.dev/docs/core/config) object and may return an error value. Initializers should **not** perform long-running computation unless it is necessary for the startup of an application as they will block additional application startup. The following example creates a connection to a Postgres database and stores it in a service container for subsequent initializers and processes to use.
 
 ```go
 import (
