@@ -20,11 +20,18 @@ func (s *HealthSuite) TestReasons(t sweet.T) {
 
 	clock.Advance(time.Hour)
 	Expect(health.AddReason("foo")).To(BeNil())
+	Expect(health.HasReason("foo")).To(BeTrue())
 	clock.Advance(time.Minute)
 	Expect(health.AddReason("bar")).To(BeNil())
+	Expect(health.HasReason("foo")).To(BeTrue())
+	Expect(health.HasReason("bar")).To(BeTrue())
 	clock.Advance(time.Minute)
 	Expect(health.AddReason("baz")).To(BeNil())
+	Expect(health.HasReason("foo")).To(BeTrue())
+	Expect(health.HasReason("bar")).To(BeTrue())
+	Expect(health.HasReason("baz")).To(BeTrue())
 	Expect(health.RemoveReason("bar")).To(BeNil())
+	Expect(health.HasReason("bar")).To(BeFalse())
 
 	Expect(health.Reasons()).To(ConsistOf([]Reason{
 		Reason{Key: "foo", Added: now.Add(time.Hour)},
@@ -42,21 +49,26 @@ func (s *HealthSuite) TestLastChangedTime(t sweet.T) {
 	// Changed
 	clock.Advance(time.Hour)
 	Expect(health.AddReason("foo")).To(BeNil())
+	Expect(health.HasReason("foo")).To(BeTrue())
+
 	clock.Advance(time.Minute * 2)
 	Expect(health.LastChange()).To(Equal(time.Minute * 2))
 
 	// No change
 	Expect(health.AddReason("bar")).To(BeNil())
+	Expect(health.HasReason("bar")).To(BeTrue())
 	clock.Advance(time.Minute * 4)
 	Expect(health.LastChange()).To(Equal(time.Minute * 6))
 
 	// No change
 	Expect(health.RemoveReason("foo")).To(BeNil())
+	Expect(health.HasReason("foo")).To(BeFalse())
 	clock.Advance(time.Minute * 2)
 	Expect(health.LastChange()).To(Equal(time.Minute * 8))
 
 	// Changed
 	Expect(health.RemoveReason("bar")).To(BeNil())
+	Expect(health.HasReason("bar")).To(BeFalse())
 	Expect(health.LastChange()).To(Equal(time.Minute * 0))
 }
 
