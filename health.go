@@ -14,6 +14,7 @@ type (
 		LastChange() time.Duration
 		AddReason(key interface{}) error
 		RemoveReason(key interface{}) error
+		HasReason(key interface{}) bool
 	}
 
 	health struct {
@@ -93,4 +94,15 @@ func (h *health) RemoveReason(key interface{}) error {
 	}
 
 	return nil
+}
+
+func (h *health) HasReason(key interface{}) bool {
+	h.mutex.Lock()
+	defer h.mutex.Unlock()
+
+	if _, ok := h.reasons[key]; ok {
+		return true
+	}
+
+	return false
 }
