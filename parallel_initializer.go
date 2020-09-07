@@ -53,7 +53,7 @@ func (i *ParallelInitializer) RegisterInitializer(
 // Init runs Init on all registered initializers concurrently.
 func (pi *ParallelInitializer) Init(config config.Config) error {
 	for _, initializer := range pi.initializers {
-		if err := pi.injectAll(initializer); err != nil {
+		if err := pi.inject(initializer); err != nil {
 			return errMetaSet{
 				errMeta{err: err, source: initializer},
 			}
@@ -98,10 +98,10 @@ func (pi *ParallelInitializer) Finalize() error {
 	return nil
 }
 
-func (pi *ParallelInitializer) injectAll(initializer namedFinalizer) error {
+func (pi *ParallelInitializer) inject(initializer namedInjectable) error {
 	pi.Logger.Info("Injecting services into %s", initializer.Name())
 
-	if err := pi.Services.Inject(initializer.Wrapped()); err != nil {
+	if err := inject(pi.Services, pi.Logger, initializer); err != nil {
 		return fmt.Errorf(
 			"failed to inject services into %s (%s)",
 			initializer.Name(),

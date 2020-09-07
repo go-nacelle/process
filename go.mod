@@ -8,6 +8,6 @@ require (
 	github.com/efritz/watchdog v0.0.0-20181228234521-84cf7cb74656
 	github.com/go-nacelle/config v1.0.0
 	github.com/go-nacelle/log v1.0.0
-	github.com/go-nacelle/service v1.0.0
+	github.com/go-nacelle/service v1.0.1
 	github.com/onsi/gomega v1.5.0
 )

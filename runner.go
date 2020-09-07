@@ -53,6 +53,7 @@ type (
 
 	namedInjectable interface {
 		Name() string
+		LoggingFields() log.LogFields
 		Wrapped() interface{}
 	}
 
@@ -258,18 +259,35 @@ func (r *runner) injectProcesses() bool {
 	return true
 }
 
-func (r *runner) inject(v namedInjectable) error {
-	r.logger.Info("Injecting services into %s", v.Name())
+func (r *runner) inject(injectable namedInjectable) error {
+	r.logger.Info("Injecting services into %s", injectable.Name())
 
-	if err := r.services.Inject(v.Wrapped()); err != nil {
+	if err := inject(r.services, r.logger, injectable); err != nil {
 		return fmt.Errorf(
 			"failed to inject services into %s (%s)",
-			v.Name(),
+			injectable.Name(),
 			err.Error(),
 		)
 	}
 
 	return nil
+}
+
+// inject will inject the given injectable with services. The service container
+// is first modified via overlay so that the logger is tagged with the service
+// name and any additional logging fields registered to the service.
+func inject(services service.ServiceContainer, logger log.Logger, injectable namedInjectable) error {
+	// Tag the logger with the service name and any registered log fields
+	logger = logger.WithFields(log.LogFields{"service": injectable.Name()})
+	logger = logger.WithFields(injectable.LoggingFields())
+
+	// Create an overlay service map replacing `logger` and `services` keys
+	serviceMap := map[string]interface{}{"logger": logger}
+	overlayServices := service.Overlay(services, serviceMap)
+	serviceMap["services"] = overlayServices
+
+	// Inject the services
+	return overlayServices.Inject(injectable.Wrapped())
 }
 
 //
