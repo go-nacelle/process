@@ -99,7 +99,7 @@ func (pi *ParallelInitializer) Finalize() error {
 }
 
 func (pi *ParallelInitializer) inject(initializer namedInjectable) error {
-	pi.Logger.Info("Injecting services into %s", initializer.Name())
+	pi.Logger.WithFields(initializer.LogFields()).Info("Injecting services into %s", initializer.Name())
 
 	if err := inject(initializer, pi.Services, pi.Logger); err != nil {
 		return fmt.Errorf(
@@ -177,7 +177,7 @@ func (pi *ParallelInitializer) initWithTimeout(initializer namedInitializer, con
 }
 
 func (pi *ParallelInitializer) init(initializer namedInitializer, config config.Config) error {
-	pi.Logger.Info("Initializing %s", initializer.Name())
+	pi.Logger.WithFields(initializer.LogFields()).Info("Initializing %s", initializer.Name())
 
 	if err := initializer.Init(config); err != nil {
 		return fmt.Errorf(
@@ -187,7 +187,7 @@ func (pi *ParallelInitializer) init(initializer namedInitializer, config config.
 		)
 	}
 
-	pi.Logger.Info("Initialized %s", initializer.Name())
+	pi.Logger.WithFields(initializer.LogFields()).Info("Initialized %s", initializer.Name())
 	return nil
 }
 
@@ -211,7 +211,7 @@ func (pi *ParallelInitializer) finalize(initializer namedFinalizer) error {
 		return nil
 	}
 
-	pi.Logger.Info("Finalizing %s", initializer.Name())
+	pi.Logger.WithFields(initializer.LogFields()).Info("Finalizing %s", initializer.Name())
 
 	if err := finalizer.Finalize(); err != nil {
 		return fmt.Errorf(
@@ -221,7 +221,7 @@ func (pi *ParallelInitializer) finalize(initializer namedFinalizer) error {
 		)
 	}
 
-	pi.Logger.Info("Finalized %s", initializer.Name())
+	pi.Logger.WithFields(initializer.LogFields()).Info("Finalized %s", initializer.Name())
 	return nil
 }
 

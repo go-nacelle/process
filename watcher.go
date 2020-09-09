@@ -102,7 +102,7 @@ func (w *processWatcher) watchErrors() {
 			}
 
 			if err.err == nil {
-				w.logger.Info(
+				w.logger.WithFields(err.source.LogFields()).Info(
 					"%s has stopped cleanly",
 					err.source.Name(),
 				)
@@ -122,7 +122,7 @@ func (w *processWatcher) watchErrors() {
 						err.err.Error(),
 					)
 				} else {
-					w.logger.Error(
+					w.logger.WithFields(err.source.LogFields()).Error(
 						"%s returned a fatal error (%s)",
 						err.source.Name(),
 						err.err.Error(),

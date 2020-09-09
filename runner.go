@@ -60,12 +60,14 @@ type (
 	namedInitializer interface {
 		Initializer
 		Name() string
+		LogFields() log.LogFields
 		InitTimeout() time.Duration
 	}
 
 	namedFinalizer interface {
 		Initializer
 		Name() string
+		LogFields() log.LogFields
 		FinalizeTimeout() time.Duration
 		Wrapped() interface{}
 	}
@@ -260,7 +262,7 @@ func (r *runner) injectProcesses() bool {
 }
 
 func (r *runner) inject(injectable namedInjectable) error {
-	r.logger.Info("Injecting services into %s", injectable.Name())
+	r.logger.WithFields(injectable.LogFields()).Info("Injecting services into %s", injectable.Name())
 
 	if err := inject(injectable, r.services, r.logger); err != nil {
 		return fmt.Errorf(
@@ -338,7 +340,7 @@ func (r *runner) initWithTimeout(initializer namedInitializer, config config.Con
 }
 
 func (r *runner) init(initializer namedInitializer, config config.Config) error {
-	r.logger.Info("Initializing %s", initializer.Name())
+	r.logger.WithFields(initializer.LogFields()).Info("Initializing %s", initializer.Name())
 
 	if err := initializer.Init(config); err != nil {
 		if _, ok := err.(errMetaSet); ok {
@@ -353,7 +355,7 @@ func (r *runner) init(initializer namedInitializer, config config.Config) error 
 		)
 	}
 
-	r.logger.Info("Initialized %s", initializer.Name())
+	r.logger.WithFields(initializer.LogFields()).Info("Initialized %s", initializer.Name())
 	return nil
 }
 
@@ -382,15 +384,13 @@ func (r *runner) finalizeWithTimeout(initializer namedFinalizer) error {
 
 func (r *runner) finalize(initializer namedFinalizer) error {
 	// Finalizer is an optional interface on Initializer. Skip
-	// this method if this initializer doesn't have the proper
-	// method.
-
+	// if this initializer doesn't conform.
 	finalizer, ok := initializer.Wrapped().(Finalizer)
 	if !ok {
 		return nil
 	}
 
-	r.logger.Info("Finalizing %s", initializer.Name())
+	r.logger.WithFields(initializer.LogFields()).Info("Finalizing %s", initializer.Name())
 
 	if err := finalizer.Finalize(); err != nil {
 		if _, ok := err.(errMetaSet); ok {
@@ -405,7 +405,7 @@ func (r *runner) finalize(initializer namedFinalizer) error {
 		)
 	}
 
-	r.logger.Info("Finalized %s", initializer.Name())
+	r.logger.WithFields(initializer.LogFields()).Info("Finalized %s", initializer.Name())
 	return nil
 }
 
@@ -542,7 +542,7 @@ func (r *runner) getHealthDescriptions() []string {
 }
 
 func (r *runner) startProcess(process *ProcessMeta, abandonSignal <-chan struct{}) {
-	r.logger.Info("Starting %s", process.Name())
+	r.logger.WithFields(process.LogFields()).Info("Starting %s", process.Name())
 
 	// Run the start method in a goroutine. We need to do
 	// this as we assume all processes are long-running
@@ -578,7 +578,7 @@ func (r *runner) startProcess(process *ProcessMeta, abandonSignal <-chan struct{
 
 	select {
 	case <-abandonSignal:
-		r.logger.Error("Abandoning result of %s", process.Name())
+		r.logger.WithFields(process.LogFields()).Error("Abandoning result of %s", process.Name())
 		return
 
 	case err := <-errChan:
@@ -629,7 +629,7 @@ func (r *runner) stopProcessesAtPriorityIndex(index int) {
 }
 
 func (r *runner) stop(process *ProcessMeta) error {
-	r.logger.Info("Stopping %s", process.Name())
+	r.logger.WithFields(process.LogFields()).Info("Stopping %s", process.Name())
 
 	if err := process.Stop(); err != nil {
 		return fmt.Errorf(
