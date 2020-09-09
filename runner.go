@@ -262,7 +262,7 @@ func (r *runner) injectProcesses() bool {
 func (r *runner) inject(injectable namedInjectable) error {
 	r.logger.Info("Injecting services into %s", injectable.Name())
 
-	if err := inject(r.services, r.logger, injectable); err != nil {
+	if err := inject(injectable, r.services, r.logger); err != nil {
 		return fmt.Errorf(
 			"failed to inject services into %s (%s)",
 			injectable.Name(),
@@ -276,7 +276,7 @@ func (r *runner) inject(injectable namedInjectable) error {
 // inject will inject the given injectable with services. The service container
 // is first modified via overlay so that the logger is tagged with the service
 // name and any additional logging fields registered to the service.
-func inject(services service.ServiceContainer, logger log.Logger, injectable namedInjectable) error {
+func inject(injectable namedInjectable, services service.ServiceContainer, logger log.Logger) error {
 	// Tag the logger with any registered log fields
 	logger = logger.WithFields(injectable.LogFields())
 

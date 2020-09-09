@@ -101,7 +101,7 @@ func (pi *ParallelInitializer) Finalize() error {
 func (pi *ParallelInitializer) inject(initializer namedInjectable) error {
 	pi.Logger.Info("Injecting services into %s", initializer.Name())
 
-	if err := inject(pi.Services, pi.Logger, initializer); err != nil {
+	if err := inject(initializer, pi.Services, pi.Logger); err != nil {
 		return fmt.Errorf(
 			"failed to inject services into %s (%s)",
 			initializer.Name(),
