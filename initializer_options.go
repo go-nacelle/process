@@ -15,10 +15,10 @@ func WithInitializerName(name string) InitializerConfigFunc {
 	return func(meta *InitializerMeta) { meta.name = name }
 }
 
-// WithInitializerLoggingFields sets additional fields sent with every log message
+// WithInitializerLogFields sets additional fields sent with every log message
 // from this initializer.
-func WithInitializerLoggingFields(fields log.LogFields) InitializerConfigFunc {
-	return func(meta *InitializerMeta) { meta.loggingFields = fields }
+func WithInitializerLogFields(fields log.LogFields) InitializerConfigFunc {
+	return func(meta *InitializerMeta) { meta.logFields = fields }
 }
 
 // WithInitializerTimeout sets the time limit for the initializer.

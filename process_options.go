@@ -15,10 +15,10 @@ func WithProcessName(name string) ProcessConfigFunc {
 	return func(meta *ProcessMeta) { meta.name = name }
 }
 
-// WithProcessLoggingFields sets additional fields sent with every log message
+// WithProcessLogFields sets additional fields sent with every log message
 // from this process.
-func WithProcessLoggingFields(fields log.LogFields) ProcessConfigFunc {
-	return func(meta *ProcessMeta) { meta.loggingFields = fields }
+func WithProcessLogFields(fields log.LogFields) ProcessConfigFunc {
+	return func(meta *ProcessMeta) { meta.logFields = fields }
 }
 
 // WithPriority assigns a priority to a process. A process with a lower-valued

@@ -53,7 +53,7 @@ type (
 
 	namedInjectable interface {
 		Name() string
-		LoggingFields() log.LogFields
+		LogFields() log.LogFields
 		Wrapped() interface{}
 	}
 
@@ -279,7 +279,7 @@ func (r *runner) inject(injectable namedInjectable) error {
 func inject(services service.ServiceContainer, logger log.Logger, injectable namedInjectable) error {
 	// Tag the logger with the service name and any registered log fields
 	logger = logger.WithFields(log.LogFields{"service": injectable.Name()})
-	logger = logger.WithFields(injectable.LoggingFields())
+	logger = logger.WithFields(injectable.LogFields())
 
 	// Create an overlay service map replacing `logger` and `services` keys
 	serviceMap := map[string]interface{}{"logger": logger}

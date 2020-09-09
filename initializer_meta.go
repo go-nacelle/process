@@ -12,7 +12,7 @@ type (
 	InitializerMeta struct {
 		Initializer
 		name            string
-		loggingFields   log.LogFields
+		logFields       log.LogFields
 		initTimeout     time.Duration
 		finalizeTimeout time.Duration
 	}
@@ -33,9 +33,9 @@ func (m *InitializerMeta) Name() string {
 	return m.name
 }
 
-// LoggingFields returns logging fields registered to this initializer.
-func (m *InitializerMeta) LoggingFields() log.LogFields {
-	return m.loggingFields
+// LogFields returns logging fields registered to this initializer.
+func (m *InitializerMeta) LogFields() log.LogFields {
+	return m.logFields
 }
 
 // InitTimeout returns the maximum timeout allowed for a call to

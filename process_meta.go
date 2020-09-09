@@ -13,7 +13,7 @@ type (
 	ProcessMeta struct {
 		Process
 		name            string
-		loggingFields   log.LogFields
+		logFields       log.LogFields
 		priority        int
 		silentExit      bool
 		once            *sync.Once
@@ -41,9 +41,9 @@ func (m *ProcessMeta) Name() string {
 	return m.name
 }
 
-// LoggingFields returns logging fields registered to this process.
-func (m *ProcessMeta) LoggingFields() log.LogFields {
-	return m.loggingFields
+// Logields returns logging fields registered to this process.
+func (m *ProcessMeta) LogFields() log.LogFields {
+	return m.logFields
 }
 
 // InitTimeout returns the maximum timeout allowed for a call to
