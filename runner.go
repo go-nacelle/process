@@ -277,8 +277,7 @@ func (r *runner) inject(injectable namedInjectable) error {
 // is first modified via overlay so that the logger is tagged with the service
 // name and any additional logging fields registered to the service.
 func inject(services service.ServiceContainer, logger log.Logger, injectable namedInjectable) error {
-	// Tag the logger with the service name and any registered log fields
-	logger = logger.WithFields(log.LogFields{"service": injectable.Name()})
+	// Tag the logger with any registered log fields
 	logger = logger.WithFields(injectable.LogFields())
 
 	// Create an overlay service map replacing `logger` and `services` keys
