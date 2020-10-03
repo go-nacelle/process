@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"github.com/derision-test/glock"
-	"github.com/efritz/backoff"
 	"github.com/go-nacelle/log"
 )
 
@@ -28,10 +27,10 @@ func WithStartTimeout(timeout time.Duration) RunnerConfigFunc {
 	return func(r *runner) { r.startupTimeout = timeout }
 }
 
-// WithHealthCheckBackoff sets the backoff to use when waiting for processes
-// to become healthy after startup.
-func WithHealthCheckBackoff(backoff backoff.Backoff) RunnerConfigFunc {
-	return func(r *runner) { r.healthCheckBackoff = backoff }
+// WithHealthCheckInterval sets the frequency between checks of process
+// health during startup.
+func WithHealthCheckInterval(interval time.Duration) RunnerConfigFunc {
+	return func(r *runner) { r.healthCheckInterval = interval }
 }
 
 // WithShutdownTimeout sets the maximum time it will wait for a process to

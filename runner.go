@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/derision-test/glock"
-	"github.com/efritz/backoff"
 
 	"github.com/go-nacelle/config"
 	"github.com/go-nacelle/log"
@@ -34,18 +33,18 @@ type Runner interface {
 }
 
 type runner struct {
-	processes          ProcessContainer
-	services           service.ServiceContainer
-	health             Health
-	watcher            *processWatcher
-	errChan            chan errMeta
-	outChan            chan error
-	wg                 *sync.WaitGroup
-	logger             log.Logger
-	clock              glock.Clock
-	startupTimeout     time.Duration
-	shutdownTimeout    time.Duration
-	healthCheckBackoff backoff.Backoff
+	processes           ProcessContainer
+	services            service.ServiceContainer
+	health              Health
+	watcher             *processWatcher
+	errChan             chan errMeta
+	outChan             chan error
+	wg                  *sync.WaitGroup
+	logger              log.Logger
+	clock               glock.Clock
+	startupTimeout      time.Duration
+	shutdownTimeout     time.Duration
+	healthCheckInterval time.Duration
 }
 
 var _ Runner = &runner{}
@@ -83,15 +82,15 @@ func NewRunner(
 	outChan := make(chan error, 1)
 
 	r := &runner{
-		processes:          processes,
-		services:           services,
-		health:             health,
-		errChan:            errChan,
-		outChan:            outChan,
-		wg:                 &sync.WaitGroup{},
-		logger:             log.NewNilLogger(),
-		clock:              glock.NewRealClock(),
-		healthCheckBackoff: backoff.NewConstantBackoff(time.Second),
+		processes:           processes,
+		services:            services,
+		health:              health,
+		errChan:             errChan,
+		outChan:             outChan,
+		wg:                  &sync.WaitGroup{},
+		logger:              log.NewNilLogger(),
+		clock:               glock.NewRealClock(),
+		healthCheckInterval: time.Second,
 	}
 
 	for _, f := range runnerConfigs {
@@ -462,7 +461,7 @@ func (r *runner) startProcessesAtPriorityIndex(index int) bool {
 
 	for {
 		select {
-		case <-r.clock.After(r.healthCheckBackoff.NextInterval()):
+		case <-r.clock.After(r.healthCheckInterval):
 			if descriptions := r.getHealthDescriptions(); len(descriptions) != 0 {
 				r.logger.Warning("Process is not yet healthy - outstanding reasons: %s", strings.Join(descriptions, ", "))
 				continue

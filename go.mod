@@ -4,7 +4,6 @@ go 1.15
 
 require (
 	github.com/derision-test/glock v0.0.0-20200930205941-83423c0502c2
-	github.com/efritz/backoff v1.0.0
 	github.com/go-nacelle/config v1.2.0
 	github.com/go-nacelle/log v1.1.1
 	github.com/go-nacelle/service v1.0.1
