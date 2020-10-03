@@ -2,27 +2,22 @@ package process
 
 import (
 	"fmt"
+	"testing"
 
-	"github.com/aphistic/sweet"
 	"github.com/go-nacelle/log"
 	"github.com/go-nacelle/service"
-	. "github.com/onsi/gomega"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-type ParallelInitializerSuite struct{}
+func TestParallelInitializerInitialize(t *testing.T) {
+	container := service.NewServiceContainer()
+	init := make(chan string, 3)
+	finalize := make(chan string, 3)
 
-func (s *ParallelInitializerSuite) TestInitialize(t sweet.T) {
-	var (
-		container = service.NewServiceContainer()
-		init      = make(chan string, 3)
-		finalize  = make(chan string, 3)
-	)
-
-	var (
-		i1 = newTaggedFinalizer(init, finalize, "a")
-		i2 = newTaggedInitializer(init, "b")
-		i3 = newTaggedFinalizer(init, finalize, "c")
-	)
+	i1 := newTaggedFinalizer(init, finalize, "a")
+	i2 := newTaggedInitializer(init, "b")
+	i3 := newTaggedFinalizer(init, finalize, "c")
 
 	pi := NewParallelInitializer(
 		WithParallelInitializerContainer(container),
@@ -34,34 +29,25 @@ func (s *ParallelInitializerSuite) TestInitialize(t sweet.T) {
 	pi.RegisterInitializer(i2)
 	pi.RegisterInitializer(i3)
 
-	err := pi.Init(nil)
-	Expect(err).To(BeNil())
+	require.Nil(t, pi.Init(nil))
 
 	// May initialize in any order
-	var n1, n2, n3 string
-	Eventually(init).Should(Receive(&n1))
-	Eventually(init).Should(Receive(&n2))
-	Eventually(init).Should(Receive(&n3))
-	Expect([]string{n1, n2, n3}).To(ConsistOf("a", "b", "c"))
+	eventually(t, stringChanReceivesUnordered(init, "a", "b", "c"))
 }
 
-func (s *ParallelInitializerSuite) TestInitError(t sweet.T) {
-	var (
-		container = service.NewServiceContainer()
-		init      = make(chan string, 4)
-		finalize  = make(chan string, 4)
-	)
+func TestParallelInitializerInitError(t *testing.T) {
+	container := service.NewServiceContainer()
+	init := make(chan string, 4)
+	finalize := make(chan string, 4)
 
-	var (
-		i1 = newTaggedFinalizer(init, finalize, "a")
-		i2 = newTaggedFinalizer(init, finalize, "b")
-		i3 = newTaggedFinalizer(init, finalize, "c")
-		i4 = newTaggedFinalizer(init, finalize, "d")
-		m1 = newInitializerMeta(i1)
-		m2 = newInitializerMeta(i2)
-		m3 = newInitializerMeta(i3)
-		m4 = newInitializerMeta(i4)
-	)
+	i1 := newTaggedFinalizer(init, finalize, "a")
+	i2 := newTaggedFinalizer(init, finalize, "b")
+	i3 := newTaggedFinalizer(init, finalize, "c")
+	i4 := newTaggedFinalizer(init, finalize, "d")
+	m1 := newInitializerMeta(i1)
+	m2 := newInitializerMeta(i2)
+	m3 := newInitializerMeta(i3)
+	m4 := newInitializerMeta(i4)
 
 	pi := NewParallelInitializer(
 		WithParallelInitializerContainer(container),
@@ -84,37 +70,29 @@ func (s *ParallelInitializerSuite) TestInitError(t sweet.T) {
 	WithInitializerName("d")(m4)
 
 	err := pi.Init(nil)
-	Expect(err).To(ConsistOf(
-		errMeta{err: fmt.Errorf("failed to initialize b (oops y)"), source: m2},
-		errMeta{err: fmt.Errorf("failed to initialize c (oops z)"), source: m3},
-		errMeta{err: fmt.Errorf("d returned error from finalize (oops w)"), source: m4},
-	))
+	require.NotNil(t, err)
 
-	var n1, n2, n3, n4 string
-	Eventually(init).Should(Receive(&n1))
-	Eventually(init).Should(Receive(&n2))
-	Eventually(init).Should(Receive(&n3))
-	Eventually(init).Should(Receive(&n4))
-	Expect([]string{n1, n2, n3, n4}).To(ConsistOf("a", "b", "c", "d"))
+	expected := []errMeta{
+		{err: fmt.Errorf("failed to initialize b (oops y)"), source: m2},
+		{err: fmt.Errorf("failed to initialize c (oops z)"), source: m3},
+		{err: fmt.Errorf("d returned error from finalize (oops w)"), source: m4},
+	}
+	for _, value := range expected {
+		assert.Contains(t, err, value)
+	}
 
-	var n5, n6 string
-	Eventually(finalize).Should(Receive(&n5))
-	Eventually(finalize).Should(Receive(&n6))
-	Expect([]string{n5, n6}).To(ConsistOf("a", "d"))
+	eventually(t, stringChanReceivesUnordered(init, "a", "b", "c", "d"))
+	eventually(t, stringChanReceivesUnordered(finalize, "a", "d"))
 }
 
-func (s *ParallelInitializerSuite) TestFinalize(t sweet.T) {
-	var (
-		container = service.NewServiceContainer()
-		init      = make(chan string, 3)
-		finalize  = make(chan string, 3)
-	)
+func TestParallelInitializerFinalize(t *testing.T) {
+	container := service.NewServiceContainer()
+	init := make(chan string, 3)
+	finalize := make(chan string, 3)
 
-	var (
-		i1 = newTaggedFinalizer(init, finalize, "a")
-		i2 = newTaggedInitializer(init, "b")
-		i3 = newTaggedFinalizer(init, finalize, "c")
-	)
+	i1 := newTaggedFinalizer(init, finalize, "a")
+	i2 := newTaggedInitializer(init, "b")
+	i3 := newTaggedFinalizer(init, finalize, "c")
 
 	pi := NewParallelInitializer(
 		WithParallelInitializerContainer(container),
@@ -126,31 +104,23 @@ func (s *ParallelInitializerSuite) TestFinalize(t sweet.T) {
 	pi.RegisterInitializer(i2)
 	pi.RegisterInitializer(i3)
 
-	err := pi.Finalize()
-	Expect(err).To(BeNil())
+	require.Nil(t, pi.Finalize())
 
-	// Should finalize in any order
-	var n1, n2 string
-	Eventually(finalize).Should(Receive(&n1))
-	Eventually(finalize).Should(Receive(&n2))
-	Expect([]string{n1, n2}).To(ConsistOf("a", "c"))
+	// May finalize in any order
+	eventually(t, stringChanReceivesUnordered(finalize, "a", "c"))
 }
 
-func (s *ParallelInitializerSuite) TestFinalizeError(t sweet.T) {
-	var (
-		container = service.NewServiceContainer()
-		init      = make(chan string, 3)
-		finalize  = make(chan string, 3)
-	)
+func TestParallelInitializerFinalizeError(t *testing.T) {
+	container := service.NewServiceContainer()
+	init := make(chan string, 3)
+	finalize := make(chan string, 3)
 
-	var (
-		i1 = newTaggedFinalizer(init, finalize, "a")
-		i2 = newTaggedFinalizer(init, finalize, "b")
-		i3 = newTaggedFinalizer(init, finalize, "c")
-		m1 = newInitializerMeta(i1)
-		m2 = newInitializerMeta(i2)
-		m3 = newInitializerMeta(i3)
-	)
+	i1 := newTaggedFinalizer(init, finalize, "a")
+	i2 := newTaggedFinalizer(init, finalize, "b")
+	i3 := newTaggedFinalizer(init, finalize, "c")
+	m1 := newInitializerMeta(i1)
+	m2 := newInitializerMeta(i2)
+	m3 := newInitializerMeta(i3)
 
 	pi := NewParallelInitializer(
 		WithParallelInitializerContainer(container),
@@ -171,15 +141,16 @@ func (s *ParallelInitializerSuite) TestFinalizeError(t sweet.T) {
 	WithInitializerName("c")(m3)
 
 	err := pi.Finalize()
-	Expect(err).To(ConsistOf(
-		errMeta{err: fmt.Errorf("a returned error from finalize (oops x)"), source: m1},
-		errMeta{err: fmt.Errorf("b returned error from finalize (oops y)"), source: m2},
-		errMeta{err: fmt.Errorf("c returned error from finalize (oops z)"), source: m3},
-	))
+	require.NotNil(t, err)
 
-	var n1, n2, n3 string
-	Eventually(finalize).Should(Receive(&n1))
-	Eventually(finalize).Should(Receive(&n2))
-	Eventually(finalize).Should(Receive(&n3))
-	Expect([]string{n1, n2, n3}).To(ConsistOf("a", "b", "c"))
+	expected := []errMeta{
+		{err: fmt.Errorf("a returned error from finalize (oops x)"), source: m1},
+		{err: fmt.Errorf("b returned error from finalize (oops y)"), source: m2},
+		{err: fmt.Errorf("c returned error from finalize (oops z)"), source: m3},
+	}
+	for _, value := range expected {
+		assert.Contains(t, err, value)
+	}
+
+	eventually(t, stringChanReceivesUnordered(finalize, "a", "b", "c"))
 }

@@ -1,13 +1,14 @@
 module github.com/go-nacelle/process
 
+go 1.15
+
 require (
-	github.com/aphistic/sweet v0.2.0
-	github.com/aphistic/sweet-junit v0.0.0-20190314030539-8d7e248096c2
+	github.com/derision-test/glock v0.0.0-20200930205941-83423c0502c2
 	github.com/efritz/backoff v1.0.0
-	github.com/efritz/glock v0.0.0-20181228234553-f184d69dff2c
 	github.com/efritz/watchdog v0.0.0-20181228234521-84cf7cb74656
-	github.com/go-nacelle/config v1.0.0
-	github.com/go-nacelle/log v1.0.0
+	github.com/go-nacelle/config v1.2.0
+	github.com/go-nacelle/log v1.1.1
 	github.com/go-nacelle/service v1.0.1
-	github.com/onsi/gomega v1.5.0
+	github.com/stretchr/testify v1.6.1
+	gopkg.in/yaml.v3 v3.0.0-20200615113413-eeeca48fe776 // indirect
 )

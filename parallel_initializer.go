@@ -5,22 +5,23 @@ import (
 	"sync"
 	"time"
 
-	"github.com/efritz/glock"
+	"github.com/derision-test/glock"
 	"github.com/go-nacelle/config"
 	"github.com/go-nacelle/log"
 	"github.com/go-nacelle/service"
 )
 
-// ParallelInitializer is a container for initializers that are initialized
-// in parallel. This is useful when groups of initializers are independent
-// and may contain some longer-running process (such as dialing a remote
-// service).
+// ParallelInitializer is a container for initializers that are initialized in
+// parallel. This is useful when groups of initializers are independent and may
+// contain some longer-running process (such as dialing a remote service).
 type ParallelInitializer struct {
 	Logger       log.Logger               `service:"logger"`
 	Services     service.ServiceContainer `service:"services"`
 	clock        glock.Clock
 	initializers []*InitializerMeta
 }
+
+var _ Initializer = &ParallelInitializer{}
 
 // NewParallelInitializer creates a new parallel initializer.
 func NewParallelInitializer(initializerConfigs ...ParallelInitializerConfigFunc) *ParallelInitializer {

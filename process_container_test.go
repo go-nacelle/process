@@ -2,17 +2,15 @@ package process
 
 import (
 	"fmt"
+	"testing"
 	"time"
 
-	"github.com/aphistic/sweet"
-	. "github.com/onsi/gomega"
-
 	"github.com/go-nacelle/config"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-type ProcessContainerSuite struct{}
-
-func (s *ProcessContainerSuite) TestInitializers(t sweet.T) {
+func TestProcessContainerInitializers(t *testing.T) {
 	i1 := InitializerFunc(func(config.Config) error { return fmt.Errorf("a") })
 	i2 := InitializerFunc(func(config.Config) error { return fmt.Errorf("b") })
 	i3 := InitializerFunc(func(config.Config) error { return fmt.Errorf("c") })
@@ -23,25 +21,25 @@ func (s *ProcessContainerSuite) TestInitializers(t sweet.T) {
 	c.RegisterInitializer(i3, WithInitializerName("c"), WithInitializerTimeout(time.Minute*2))
 
 	initializers := c.GetInitializers()
-	Expect(initializers).To(HaveLen(3))
+	require.Len(t, initializers, 3)
 
 	// Test names
-	Expect(initializers[0].Name()).To(Equal("<unnamed>"))
-	Expect(initializers[1].Name()).To(Equal("b"))
-	Expect(initializers[2].Name()).To(Equal("c"))
+	assert.Equal(t, "<unnamed>", initializers[0].Name())
+	assert.Equal(t, "b", initializers[1].Name())
+	assert.Equal(t, "c", initializers[2].Name())
 
 	// Test timeout
-	Expect(initializers[0].InitTimeout()).To(Equal(time.Second * 0))
-	Expect(initializers[1].InitTimeout()).To(Equal(time.Second * 0))
-	Expect(initializers[2].InitTimeout()).To(Equal(time.Minute * 2))
+	assert.Equal(t, time.Second*0, initializers[0].InitTimeout())
+	assert.Equal(t, time.Second*0, initializers[1].InitTimeout())
+	assert.Equal(t, time.Minute*2, initializers[2].InitTimeout())
 
 	// Test inner function
-	Expect(initializers[0].Initializer.Init(nil)).Should(MatchError("a"))
-	Expect(initializers[1].Initializer.Init(nil)).Should(MatchError("b"))
-	Expect(initializers[2].Initializer.Init(nil)).Should(MatchError("c"))
+	assert.EqualError(t, initializers[0].Initializer.Init(nil), "a")
+	assert.EqualError(t, initializers[1].Initializer.Init(nil), "b")
+	assert.EqualError(t, initializers[2].Initializer.Init(nil), "c")
 }
 
-func (s *ProcessContainerSuite) TestProcesses(t sweet.T) {
+func TestProcessContainerProcesses(t *testing.T) {
 	c := NewProcessContainer()
 	c.RegisterProcess(newInitFailProcess("a"))
 	c.RegisterProcess(newInitFailProcess("b"), WithProcessName("b"), WithPriority(5))
@@ -50,40 +48,40 @@ func (s *ProcessContainerSuite) TestProcesses(t sweet.T) {
 	c.RegisterProcess(newInitFailProcess("e"), WithProcessName("e"), WithPriority(2))
 	c.RegisterProcess(newInitFailProcess("f"), WithProcessName("f"))
 
-	Expect(c.NumProcesses()).To(Equal(6))
-	Expect(c.NumPriorities()).To(Equal(4))
+	require.Equal(t, 6, c.NumProcesses())
+	require.Equal(t, 4, c.NumPriorities())
 
 	p1 := c.GetProcessesAtPriorityIndex(0)
 	p2 := c.GetProcessesAtPriorityIndex(1)
 	p3 := c.GetProcessesAtPriorityIndex(2)
 	p4 := c.GetProcessesAtPriorityIndex(3)
 
-	Expect(p1).To(HaveLen(2))
-	Expect(p2).To(HaveLen(2))
-	Expect(p3).To(HaveLen(1))
-	Expect(p4).To(HaveLen(1))
+	require.Len(t, p1, 2)
+	require.Len(t, p2, 2)
+	require.Len(t, p3, 1)
+	require.Len(t, p4, 1)
 
 	// Test priorities
-	Expect(p1[0].priority).To(Equal(0))
-	Expect(p2[0].priority).To(Equal(2))
-	Expect(p3[0].priority).To(Equal(3))
-	Expect(p4[0].priority).To(Equal(5))
+	assert.Equal(t, 0, p1[0].priority)
+	assert.Equal(t, 2, p2[0].priority)
+	assert.Equal(t, 3, p3[0].priority)
+	assert.Equal(t, 5, p4[0].priority)
 
 	// Test names + order
-	Expect(p1[0].Name()).To(Equal("<unnamed>"))
-	Expect(p1[1].Name()).To(Equal("f"))
-	Expect(p2[0].Name()).To(Equal("c"))
-	Expect(p2[1].Name()).To(Equal("e"))
-	Expect(p3[0].Name()).To(Equal("d"))
-	Expect(p4[0].Name()).To(Equal("b"))
+	assert.Equal(t, "<unnamed>", p1[0].Name())
+	assert.Equal(t, "f", p1[1].Name())
+	assert.Equal(t, "c", p2[0].Name())
+	assert.Equal(t, "e", p2[1].Name())
+	assert.Equal(t, "d", p3[0].Name())
+	assert.Equal(t, "b", p4[0].Name())
 
 	// Test inner function
-	Expect(p1[0].Process.Init(nil)).To(MatchError("a"))
-	Expect(p1[1].Process.Init(nil)).To(MatchError("f"))
-	Expect(p2[0].Process.Init(nil)).To(MatchError("c"))
-	Expect(p2[1].Process.Init(nil)).To(MatchError("e"))
-	Expect(p3[0].Process.Init(nil)).To(MatchError("d"))
-	Expect(p4[0].Process.Init(nil)).To(MatchError("b"))
+	assert.EqualError(t, p1[0].Process.Init(nil), "a")
+	assert.EqualError(t, p1[1].Process.Init(nil), "f")
+	assert.EqualError(t, p2[0].Process.Init(nil), "c")
+	assert.EqualError(t, p2[1].Process.Init(nil), "e")
+	assert.EqualError(t, p3[0].Process.Init(nil), "d")
+	assert.EqualError(t, p4[0].Process.Init(nil), "b")
 }
 
 //

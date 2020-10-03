@@ -7,22 +7,20 @@ import (
 	"github.com/go-nacelle/log"
 )
 
-type (
-	// ProcessMeta wraps a process with some package private
-	// fields.
-	ProcessMeta struct {
-		Process
-		name            string
-		logFields       log.LogFields
-		priority        int
-		silentExit      bool
-		once            *sync.Once
-		stopped         chan struct{}
-		initTimeout     time.Duration
-		startTimeout    time.Duration
-		shutdownTimeout time.Duration
-	}
-)
+// ProcessMeta wraps a process with some package private
+// fields.
+type ProcessMeta struct {
+	Process
+	name            string
+	logFields       log.LogFields
+	priority        int
+	silentExit      bool
+	once            *sync.Once
+	stopped         chan struct{}
+	initTimeout     time.Duration
+	startTimeout    time.Duration
+	shutdownTimeout time.Duration
+}
 
 func newProcessMeta(process Process) *ProcessMeta {
 	return &ProcessMeta{

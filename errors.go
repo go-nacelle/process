@@ -1,14 +1,12 @@
 package process
 
-type (
-	errMeta struct {
-		err        error
-		source     namedInitializer
-		silentExit bool
-	}
+type errMeta struct {
+	err        error
+	source     namedInitializer
+	silentExit bool
+}
 
-	errMetaSet []errMeta
-)
+type errMetaSet []errMeta
 
 func (set errMetaSet) Error() string {
 	return "<multiple errors from process group>"

@@ -7,8 +7,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/derision-test/glock"
 	"github.com/efritz/backoff"
-	"github.com/efritz/glock"
 	"github.com/efritz/watchdog"
 
 	"github.com/go-nacelle/config"
@@ -16,62 +16,62 @@ import (
 	"github.com/go-nacelle/service"
 )
 
-type (
-	// Runner wraps a process container. Given a loaded configuration object,
-	// it can run the registered initializers and processes and wait for them
-	// to exit (cleanly or via shutdown request).
-	Runner interface {
-		// Run takes a loaded configuration object, then starts and monitors
-		// the registered items in the process container. This method returns
-		// a channel of errors. Each error from an initializer or a process will
-		// be sent on this channel (nil errors are ignored). This channel will
-		// close once all processes have exited (or, alternatively, when the
-		// shutdown timeout has elapsed).
-		Run(config.Config) <-chan error
+// Runner wraps a process container. Given a loaded configuration object,
+// it can run the registered initializers and processes and wait for them
+// to exit (cleanly or via shutdown request).
+type Runner interface {
+	// Run takes a loaded configuration object, then starts and monitors
+	// the registered items in the process container. This method returns
+	// a channel of errors. Each error from an initializer or a process will
+	// be sent on this channel (nil errors are ignored). This channel will
+	// close once all processes have exited (or, alternatively, when the
+	// shutdown timeout has elapsed).
+	Run(config.Config) <-chan error
 
-		// Shutdown will begin a graceful exit of all processes. This method
-		// will block until the runner has exited (the channel from the Run
-		// method has closed) or the given duration has elapsed. In the later
-		// case a non-nil error is returned.
-		Shutdown(time.Duration) error
-	}
+	// Shutdown will begin a graceful exit of all processes. This method
+	// will block until the runner has exited (the channel from the Run
+	// method has closed) or the given duration has elapsed. In the later
+	// case a non-nil error is returned.
+	Shutdown(time.Duration) error
+}
 
-	runner struct {
-		processes          ProcessContainer
-		services           service.ServiceContainer
-		health             Health
-		watcher            *processWatcher
-		errChan            chan errMeta
-		outChan            chan error
-		wg                 *sync.WaitGroup
-		logger             log.Logger
-		clock              glock.Clock
-		startupTimeout     time.Duration
-		shutdownTimeout    time.Duration
-		healthCheckBackoff backoff.Backoff
-	}
+type runner struct {
+	processes          ProcessContainer
+	services           service.ServiceContainer
+	health             Health
+	watcher            *processWatcher
+	errChan            chan errMeta
+	outChan            chan error
+	wg                 *sync.WaitGroup
+	logger             log.Logger
+	clock              glock.Clock
+	startupTimeout     time.Duration
+	shutdownTimeout    time.Duration
+	healthCheckBackoff backoff.Backoff
+}
 
-	namedInjectable interface {
-		Name() string
-		LogFields() log.LogFields
-		Wrapped() interface{}
-	}
+var _ Runner = &runner{}
 
-	namedInitializer interface {
-		Initializer
-		Name() string
-		LogFields() log.LogFields
-		InitTimeout() time.Duration
-	}
+type namedInjectable interface {
+	Name() string
+	LogFields() log.LogFields
+	Wrapped() interface{}
+}
 
-	namedFinalizer interface {
-		Initializer
-		Name() string
-		LogFields() log.LogFields
-		FinalizeTimeout() time.Duration
-		Wrapped() interface{}
-	}
-)
+type namedInitializer interface {
+	Initializer
+	Name() string
+	LogFields() log.LogFields
+	InitTimeout() time.Duration
+}
+
+type namedFinalizer interface {
+	Initializer
+	Name() string
+	LogFields() log.LogFields
+	FinalizeTimeout() time.Duration
+	Wrapped() interface{}
+}
 
 // NewRunner creates a process runner from the given process and service
 // containers.
@@ -440,12 +440,10 @@ func (r *runner) startProcessesAtPriorityIndex(index int) bool {
 	// and each process at this priority index. If no such values are set, then
 	// the channel is nil and will never yield a value.
 
-	var (
-		ctx, cancel        = context.WithCancel(context.Background())
-		abandonSignal      = make(chan struct{})
-		minTimeout         = r.startupTimeoutForPriorityIndex(index)
-		startupTimeoutChan = r.makeTimeoutChan(minTimeout)
-	)
+	ctx, cancel := context.WithCancel(context.Background())
+	abandonSignal := make(chan struct{})
+	minTimeout := r.startupTimeoutForPriorityIndex(index)
+	startupTimeoutChan := r.makeTimeoutChan(minTimeout)
 
 	defer cancel()
 

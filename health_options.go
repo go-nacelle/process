@@ -1,6 +1,6 @@
 package process
 
-import "github.com/efritz/glock"
+import "github.com/derision-test/glock"
 
 type HealthConfigFunc func(*health)
 

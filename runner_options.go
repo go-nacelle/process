@@ -3,8 +3,8 @@ package process
 import (
 	"time"
 
+	"github.com/derision-test/glock"
 	"github.com/efritz/backoff"
-	"github.com/efritz/glock"
 	"github.com/go-nacelle/log"
 )
 

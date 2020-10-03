@@ -2,45 +2,45 @@ package process
 
 import "sort"
 
-type (
-	// ProcessContainer is a collection of initializers and processes.
-	ProcessContainer interface {
-		// RegisterInitializer adds an initializer to the container
-		// with the given configuration.
-		RegisterInitializer(Initializer, ...InitializerConfigFunc)
+// ProcessContainer is a collection of initializers and processes.
+type ProcessContainer interface {
+	// RegisterInitializer adds an initializer to the container
+	// with the given configuration.
+	RegisterInitializer(Initializer, ...InitializerConfigFunc)
 
-		// RegisterProcess adds a process to the container with the
-		// given configuration.
-		RegisterProcess(Process, ...ProcessConfigFunc)
+	// RegisterProcess adds a process to the container with the
+	// given configuration.
+	RegisterProcess(Process, ...ProcessConfigFunc)
 
-		// NumInitializers returns the number of registered initializers.
-		NumInitializers() int
+	// NumInitializers returns the number of registered initializers.
+	NumInitializers() int
 
-		// NumProcesses returns the number of registered processes.
-		NumProcesses() int
+	// NumProcesses returns the number of registered processes.
+	NumProcesses() int
 
-		// NumPriorities returns the number of distinct registered
-		// process priorities.
-		NumPriorities() int
+	// NumPriorities returns the number of distinct registered
+	// process priorities.
+	NumPriorities() int
 
-		// GetInitializers returns a slice of meta objects wrapping
-		// all registered initializers.
-		GetInitializers() []*InitializerMeta
+	// GetInitializers returns a slice of meta objects wrapping
+	// all registered initializers.
+	GetInitializers() []*InitializerMeta
 
-		// GetProcessesAtPriorityIndex returns  aslice of meta objects
-		// wrapping all processes registered to this priority index,
-		// where zero denotes the lowest priority, one the second
-		// lowest, and so on. The index parameter is not checked for
-		// validity before indexing an internal slice - caller beware.
-		GetProcessesAtPriorityIndex(index int) []*ProcessMeta
-	}
+	// GetProcessesAtPriorityIndex returns  aslice of meta objects
+	// wrapping all processes registered to this priority index,
+	// where zero denotes the lowest priority, one the second
+	// lowest, and so on. The index parameter is not checked for
+	// validity before indexing an internal slice - caller beware.
+	GetProcessesAtPriorityIndex(index int) []*ProcessMeta
+}
 
-	container struct {
-		initializers []*InitializerMeta
-		processes    map[int][]*ProcessMeta
-		priorities   []int
-	}
-)
+type container struct {
+	initializers []*InitializerMeta
+	processes    map[int][]*ProcessMeta
+	priorities   []int
+}
+
+var _ ProcessContainer = &container{}
 
 // NewProcessContainer creates an empty process container.
 func NewProcessContainer() ProcessContainer {
