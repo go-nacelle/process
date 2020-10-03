@@ -18,17 +18,13 @@ github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSs
 github.com/derision-test/glock v0.0.0-20200930205941-83423c0502c2 h1:Wno8XFVW7zXGgZ6vcPAh2CXNsQwcrwZlzRkx/j8DWVo=
 github.com/derision-test/glock v0.0.0-20200930205941-83423c0502c2/go.mod h1:jKtLdBMrF+XQatqvg46wiWdDfDSSDjdhO4dOM2FX9H4=
 github.com/dustin/go-humanize v1.0.0/go.mod h1:HtrtbFcZ19U5GC7JDqmcUSB87Iq5E25KnS6fMYU6eOk=
-github.com/efritz/backoff v0.0.0-20181228195520-96f666d52d44/go.mod h1:L7a/1pfrfOzpf5i9MEQTeiW9ZdRUcYMfK4QHud9+OSA=
 github.com/efritz/backoff v1.0.0 h1:r1DfNhA1J7p8kZ185J/hLPz2Bl5ezTicUr9KamEAOYw=
 github.com/efritz/backoff v1.0.0/go.mod h1:/tKomesOo7ekklUHEHxBbzNpjyBiOoiDCif3AcO+OIU=
-github.com/efritz/glock v0.0.0-20180604185841-7e95e8b27a61/go.mod h1:cpd5N5da92h+gt4FqUvF4jqMdXyVRM86t6Rl99W6xR0=
 github.com/efritz/glock v0.0.0-20181228234553-f184d69dff2c h1:Q3HKbZogL9GGZVdO3PiVCOxZmRCsQAgV1xfelXJF/dY=
 github.com/efritz/glock v0.0.0-20181228234553-f184d69dff2c/go.mod h1:4behwg5YZ7amYrI5VDO/1s68YXZQHklcyFQpVDDgB2w=
 github.com/efritz/go-genlib v0.0.0-20190429143346-e1e478a98211/go.mod h1:zUniQY7pV7ciqIjXY8TyDHXaqHZJa3NQIiiYDycogYk=
 github.com/efritz/go-mockgen v0.0.0-20190613153341-3425cf558834 h1:37JFXKsLttHkcvFFr4t68C21uInpCNAIvPeE7IYRXKA=
 github.com/efritz/go-mockgen v0.0.0-20190613153341-3425cf558834/go.mod h1:2Ia+C4l9Ns2t8XwO8JVbJ6GUEL/Bwm4u1DAj7ApQdqE=
-github.com/efritz/watchdog v0.0.0-20181228234521-84cf7cb74656 h1:xtclV2XiE/m2kwsD77SExHvN73urFKqAd0f0Ovl78bA=
-github.com/efritz/watchdog v0.0.0-20181228234521-84cf7cb74656/go.mod h1:5dIiUx6OFLQeNCjiOSY3ylcJC2yaUxzecH9Ot3ADtn4=
 github.com/fatih/structtag v1.0.0 h1:pTHj65+u3RKWYPSGaU290FpI/dXxTaHdVwVwbcPKmEc=
 github.com/fatih/structtag v1.0.0/go.mod h1:IKitwq45uXL/yqi5mYghiD3w9H6eTOvI9vnk8tXMphA=
 github.com/fsnotify/fsnotify v1.4.7 h1:IXs+QLmnXW2CcXuY+8Mzv/fWEsPGWxqefPtCP5CnV9I=

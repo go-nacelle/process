@@ -1,7 +1,6 @@
 package process
 
 import (
-	"context"
 	"fmt"
 	"strings"
 	"sync"
@@ -9,7 +8,6 @@ import (
 
 	"github.com/derision-test/glock"
 	"github.com/efritz/backoff"
-	"github.com/efritz/watchdog"
 
 	"github.com/go-nacelle/config"
 	"github.com/go-nacelle/log"
@@ -429,37 +427,10 @@ func (r *runner) startProcessesAtPriorityIndex(index int) bool {
 		r.stopProcessesAtPriorityIndex(index)
 	}()
 
-	// Create a context object whose cancellation marks either all processes
-	// of this priority index going healthy or the startup timeout elapsing.
-	// Create an abandon channel that closes at the same time to signal the
-	// routine invoking the Start method of a process to ignore its return
-	// value -- we really should not allow a timed-out start method to block
-	// the entire process.
-	//
-	// The timeout is calculated from the minimum timeout values of the runner
-	// and each process at this priority index. If no such values are set, then
-	// the channel is nil and will never yield a value.
-
-	ctx, cancel := context.WithCancel(context.Background())
+	// Create an abandon channel that closes to signal the routine invoking
+	// the Start method of a process to ignore its return value -- we really
+	// should not allow a timed-out start method to block the entire process.
 	abandonSignal := make(chan struct{})
-	minTimeout := r.startupTimeoutForPriorityIndex(index)
-	startupTimeoutChan := r.makeTimeoutChan(minTimeout)
-
-	defer cancel()
-
-	go func() {
-		select {
-		case <-ctx.Done():
-		case <-startupTimeoutChan:
-			r.logger.Error(
-				"processes at priority index %d did not start within timeout",
-				index,
-			)
-
-			cancel()
-			close(abandonSignal)
-		}
-	}()
 
 	// Actually start each process. Each call to startProcess blocks until
 	// the process exits, so we perform each one in a goroutine guarded by
@@ -474,48 +445,48 @@ func (r *runner) startProcessesAtPriorityIndex(index int) bool {
 		}(process)
 	}
 
-	// The health check function will read the outstanding unhealthy reasons
-	// from the health reporter. We will block until the reason list is empty.
-
-	retry := watchdog.RetryFunc(func() bool {
-		if descriptions := r.getHealthDescriptions(); len(descriptions) > 0 {
-			r.logger.Warning(
-				"Process is not yet healthy - outstanding reasons: %s",
-				strings.Join(descriptions, ", "),
-			)
-
-			return false
-		}
-
+	// If initializers did not set a health description then we can assume that
+	// the start method will immediately begin useful work and we don't need to
+	// monitor it for an ok signal.
+	if len(r.getHealthDescriptions()) == 0 {
+		r.logger.Info("All processes at priority index %d have reported healthy", index)
 		return true
-	})
-
-	// Perform the health check function with the given backoff. Will return
-	// false if the context has been canceled before the health function has
-	// returned true.
-
-	if !watchdog.BlockUntilSuccess(ctx, retry, r.healthCheckBackoff) {
-		// Do one last check to ensure that there are still unhealthy reasons.
-		// This stops a weird race condition where we stop the runner with a
-		// series of process errors with no outstanding reasons.
-
-		if descriptions := r.getHealthDescriptions(); len(descriptions) > 0 {
-			err := fmt.Errorf(
-				"process did not become healthy within timeout - outstanding reasons: %s",
-				strings.Join(descriptions, ", "),
-			)
-
-			r.errChan <- errMeta{err: err}
-			return false
-		}
 	}
 
-	r.logger.Info(
-		"All processes at priority index %d have reported healthy",
-		index,
-	)
+	// Otherwise, we'll keep re-checking the health descriptions until the list
+	// goes empty, or the startup timeout elapses. The timeout is calculated from
+	// the minimum timeout values of the runner and each process at this priority
+	// index. If no such values are set, then the startup timeout channel is nil
+	// and will never yield a value.
+	startupTimeoutChan := r.makeTimeoutChan(r.startupTimeoutForPriorityIndex(index))
 
-	return true
+	for {
+		select {
+		case <-r.clock.After(r.healthCheckBackoff.NextInterval()):
+			if descriptions := r.getHealthDescriptions(); len(descriptions) != 0 {
+				r.logger.Warning("Process is not yet healthy - outstanding reasons: %s", strings.Join(descriptions, ", "))
+				continue
+			}
+
+			r.logger.Info("All processes at priority index %d have reported healthy", index)
+			return true
+
+		case <-startupTimeoutChan:
+			if descriptions := r.getHealthDescriptions(); len(descriptions) != 0 {
+				r.errChan <- errMeta{err: fmt.Errorf(
+					"processes at priority index %d did not become healthy within timeout - outstanding reasons: %s",
+					index,
+					strings.Join(descriptions, ", "),
+				)}
+
+				close(abandonSignal)
+				return false
+			}
+
+			r.logger.Info("All processes at priority index %d have reported healthy", index)
+			return true
+		}
+	}
 }
 
 func (r *runner) startupTimeoutForPriorityIndex(index int) time.Duration {

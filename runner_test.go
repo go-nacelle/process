@@ -236,7 +236,7 @@ func TestRunnerProcessStartTimeout(t *testing.T) {
 	eventually(t, stringChanReceivesN(stop, 2))
 
 	// Check error message
-	eventually(t, errorChanReceivesUnordered(errChan, "process did not become healthy within timeout - outstanding reasons: oops1, oops2"))
+	eventually(t, errorChanReceivesUnordered(errChan, "processes at priority index 0 did not become healthy within timeout - outstanding reasons: oops1, oops2"))
 	eventually(t, errorChanClosed(errChan))
 }
 
