@@ -5,30 +5,28 @@ import (
 	"sync"
 	"time"
 
-	"github.com/efritz/glock"
+	"github.com/derision-test/glock"
 )
 
-type (
-	Health interface {
-		Reasons() []Reason
-		LastChange() time.Duration
-		AddReason(key interface{}) error
-		RemoveReason(key interface{}) error
-		HasReason(key interface{}) bool
-	}
+type Health interface {
+	Reasons() []Reason
+	LastChange() time.Duration
+	AddReason(key interface{}) error
+	RemoveReason(key interface{}) error
+	HasReason(key interface{}) bool
+}
 
-	health struct {
-		reasons    map[interface{}]Reason
-		lastChange time.Time
-		mutex      sync.RWMutex
-		clock      glock.Clock
-	}
+type health struct {
+	reasons    map[interface{}]Reason
+	lastChange time.Time
+	mutex      sync.RWMutex
+	clock      glock.Clock
+}
 
-	Reason struct {
-		Key   interface{}
-		Added time.Time
-	}
-)
+type Reason struct {
+	Key   interface{}
+	Added time.Time
+}
 
 func NewHealth(configs ...HealthConfigFunc) Health {
 	h := &health{

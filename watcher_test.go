@@ -3,95 +3,79 @@ package process
 import (
 	"fmt"
 	"syscall"
+	"testing"
 	"time"
 
-	"github.com/aphistic/sweet"
-	"github.com/efritz/glock"
-	. "github.com/onsi/gomega"
-
+	"github.com/derision-test/glock"
 	"github.com/go-nacelle/config"
 )
 
-type WatcherSuite struct{}
-
-func (s *WatcherSuite) TestNoErrors(t sweet.T) {
-	var (
-		errChan = make(chan errMeta)
-		outChan = make(chan error)
-		watcher = newWatcher(errChan, outChan)
-	)
-
+func TestWatcherNoErrors(t *testing.T) {
+	errChan := make(chan errMeta)
+	outChan := make(chan error)
+	watcher := newWatcher(errChan, outChan)
 	watcher.watch()
 
 	// Nil errors do not go on out chan
 	errChan <- errMeta{nil, makeNamedInitializer("a"), false}
 	errChan <- errMeta{nil, makeNamedInitializer("b"), false}
 	errChan <- errMeta{nil, makeNamedInitializer("c"), false}
-	Consistently(outChan).ShouldNot(Receive())
+	consistently(t, errorChanDoesNotReceive(outChan))
 
 	// Closing err chan should shutdown watcher
 	close(errChan)
-	Eventually(outChan).Should(BeClosed())
 
 	// Ensure we unblock
-	Eventually(outChan).Should(BeClosed())
+	eventually(t, errorChanClosed(outChan))
 }
 
-func (s *WatcherSuite) TestFatalErrorBeginsShutdown(t sweet.T) {
-	var (
-		errChan = make(chan errMeta)
-		outChan = make(chan error)
-		watcher = newWatcher(errChan, outChan)
-	)
-
+func TestWatcherFatalErrorBeginsShutdown(t *testing.T) {
+	errChan := make(chan errMeta)
+	outChan := make(chan error)
+	watcher := newWatcher(errChan, outChan)
 	watcher.watch()
 
 	errChan <- errMeta{nil, makeNamedInitializer("a"), true}
 	errChan <- errMeta{nil, makeNamedInitializer("b"), true}
-	Consistently(outChan).ShouldNot(Receive())
-	Consistently(watcher.shutdownSignal).ShouldNot(BeClosed())
+	consistently(t, errorChanDoesNotReceive(outChan))
+	consistently(t, structChanDoesNotReceive(watcher.shutdownSignal))
 
 	errChan <- errMeta{fmt.Errorf("oops"), makeNamedInitializer("c"), true}
-	Eventually(outChan).Should(Receive(MatchError("oops")))
-	Eventually(watcher.shutdownSignal).Should(BeClosed())
-	Consistently(outChan).ShouldNot(Receive())
+	eventually(t, errorChanReceivesUnordered(outChan, "oops"))
+	eventually(t, structChanClosed(watcher.shutdownSignal))
+	consistently(t, errorChanDoesNotReceive(outChan))
 
 	// Additional errors
 	errChan <- errMeta{nil, makeNamedInitializer("a"), true}
 	errChan <- errMeta{nil, makeNamedInitializer("b"), true}
-	Consistently(outChan).ShouldNot(Receive())
+	consistently(t, errorChanDoesNotReceive(outChan))
 
 	// And the same behavior above applies
 	close(errChan)
-	Eventually(outChan).Should(BeClosed())
+	eventually(t, errorChanClosed(outChan))
 }
 
-func (s *WatcherSuite) TestNilErrorBeginsShutdown(t sweet.T) {
-	var (
-		errChan = make(chan errMeta)
-		outChan = make(chan error)
-		watcher = newWatcher(errChan, outChan)
-	)
-
+func TestWatcherNilErrorBeginsShutdown(t *testing.T) {
+	errChan := make(chan errMeta)
+	outChan := make(chan error)
+	watcher := newWatcher(errChan, outChan)
 	watcher.watch()
 
 	errChan <- errMeta{nil, makeNamedInitializer("a"), false}
-	Consistently(outChan).ShouldNot(Receive())
-	Eventually(watcher.shutdownSignal).Should(BeClosed())
+	eventually(t, structChanClosed(watcher.shutdownSignal))
+	consistently(t, errorChanDoesNotReceive(outChan))
 
 	// Cleanup
 	close(errChan)
-	Eventually(outChan).Should(BeClosed())
+	eventually(t, errorChanClosed(outChan))
 }
 
-func (s *WatcherSuite) TestSignals(t sweet.T) {
-	var (
-		errChan = make(chan errMeta)
-		outChan = make(chan error)
-		watcher = newWatcher(errChan, outChan)
-	)
-
+func TestWatcherSignals(t *testing.T) {
+	errChan := make(chan errMeta)
 	defer close(errChan)
+
+	outChan := make(chan error)
+	watcher := newWatcher(errChan, outChan)
 	watcher.watch()
 
 	// Try to ensure watcher is waiting on signal
@@ -99,51 +83,47 @@ func (s *WatcherSuite) TestSignals(t sweet.T) {
 
 	// First signal
 	syscall.Kill(syscall.Getpid(), shutdownSignals[0])
-	Eventually(watcher.shutdownSignal).Should(BeClosed())
+	eventually(t, structChanClosed(watcher.shutdownSignal))
 
 	// Second signal
-	Consistently(watcher.abortSignal).ShouldNot(BeClosed())
+	consistentlyNot(t, structChanClosed(watcher.abortSignal))
 	syscall.Kill(syscall.Getpid(), shutdownSignals[0])
-	Eventually(watcher.abortSignal).Should(BeClosed())
+	eventually(t, structChanClosed(watcher.abortSignal))
 }
 
-func (s *WatcherSuite) TestExternalHaltRequestBeginsShutdown(t sweet.T) {
-	var (
-		errChan = make(chan errMeta)
-		outChan = make(chan error)
-		watcher = newWatcher(errChan, outChan)
-	)
+func TestWatcherExternalHaltRequestBeginsShutdown(t *testing.T) {
+	errChan := make(chan errMeta)
+	outChan := make(chan error)
+	watcher := newWatcher(errChan, outChan)
 
 	watcher.watch()
-
 	watcher.halt()
-	Eventually(watcher.shutdownSignal).Should(BeClosed())
+	eventually(t, structChanClosed(watcher.shutdownSignal))
 
 	// Cleanup
 	close(errChan)
-	Eventually(outChan).Should(BeClosed())
+	eventually(t, errorChanClosed(outChan))
 }
 
-func (s *WatcherSuite) TestShutdownTimeout(t sweet.T) {
-	var (
-		errChan = make(chan errMeta)
-		outChan = make(chan error)
-		clock   = glock.NewMockClock()
-		watcher = newWatcher(
-			errChan,
-			outChan,
-			withWatcherClock(clock),
-			withWatcherShutdownTimeout(time.Second*10),
-		)
+func TestWatcherShutdownTimeout(t *testing.T) {
+	errChan := make(chan errMeta)
+	defer close(errChan)
+
+	outChan := make(chan error)
+	clock := glock.NewMockClock()
+	watcher := newWatcher(
+		errChan,
+		outChan,
+		withWatcherClock(clock),
+		withWatcherShutdownTimeout(time.Second*10),
 	)
 
-	defer close(errChan)
 	watcher.watch()
-
 	watcher.halt()
-	Consistently(outChan).ShouldNot(BeClosed())
+
+	consistentlyNot(t, errorChanClosed(outChan))
 	clock.BlockingAdvance(time.Second * 10)
-	Eventually(outChan).Should(BeClosed())
+	eventually(t, errorChanClosed(outChan))
 }
 
 //

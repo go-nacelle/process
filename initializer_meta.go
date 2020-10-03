@@ -6,17 +6,15 @@ import (
 	"github.com/go-nacelle/log"
 )
 
-type (
-	// InitializerMeta wraps an initializer with some package
-	// private fields.
-	InitializerMeta struct {
-		Initializer
-		name            string
-		logFields       log.LogFields
-		initTimeout     time.Duration
-		finalizeTimeout time.Duration
-	}
-)
+// InitializerMeta wraps an initializer with some package
+// private fields.
+type InitializerMeta struct {
+	Initializer
+	name            string
+	logFields       log.LogFields
+	initTimeout     time.Duration
+	finalizeTimeout time.Duration
+}
 
 func newInitializerMeta(initializer Initializer) *InitializerMeta {
 	return &InitializerMeta{

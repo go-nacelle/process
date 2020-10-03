@@ -2,40 +2,32 @@ package process
 
 import (
 	"fmt"
+	"testing"
 	"time"
 
-	"github.com/aphistic/sweet"
-	. "github.com/onsi/gomega"
-
-	"github.com/efritz/glock"
+	"github.com/derision-test/glock"
 	"github.com/go-nacelle/config"
 	"github.com/go-nacelle/service"
 )
 
-type RunnerSuite struct{}
+func TestRunnerRunOrder(t *testing.T) {
+	services := service.NewServiceContainer()
+	processes := NewProcessContainer()
+	health := NewHealth()
+	runner := NewRunner(processes, services, health)
+	init := make(chan string)
+	finalize := make(chan string)
+	start := make(chan string)
+	stop := make(chan string)
 
-func (s *RunnerSuite) TestRunOrder(t sweet.T) {
-	var (
-		services  = service.NewServiceContainer()
-		processes = NewProcessContainer()
-		health    = NewHealth()
-		runner    = NewRunner(processes, services, health)
-		init      = make(chan string)
-		finalize  = make(chan string)
-		start     = make(chan string)
-		stop      = make(chan string)
-	)
-
-	var (
-		i1 = newTaggedFinalizer(init, finalize, "a")
-		i2 = newTaggedInitializer(init, "b")
-		i3 = newTaggedFinalizer(init, finalize, "c")
-		p1 = newTaggedProcess(init, start, stop, "d")
-		p2 = newTaggedProcess(init, start, stop, "e")
-		p3 = newTaggedProcess(init, start, stop, "f")
-		p4 = newTaggedProcess(init, start, stop, "g")
-		p5 = newTaggedProcess(init, start, stop, "h")
-	)
+	i1 := newTaggedFinalizer(init, finalize, "a")
+	i2 := newTaggedInitializer(init, "b")
+	i3 := newTaggedFinalizer(init, finalize, "c")
+	p1 := newTaggedProcess(init, start, stop, "d")
+	p2 := newTaggedProcess(init, start, stop, "e")
+	p3 := newTaggedProcess(init, start, stop, "f")
+	p4 := newTaggedProcess(init, start, stop, "g")
+	p5 := newTaggedProcess(init, start, stop, "h")
 
 	// Register things
 	processes.RegisterInitializer(i1)
@@ -47,11 +39,8 @@ func (s *RunnerSuite) TestRunOrder(t sweet.T) {
 	processes.RegisterProcess(p4, WithPriority(3))
 	processes.RegisterProcess(p5)
 
-	var (
-		n1, n2, n3, n4, n5 string
-		errChan            = make(chan error)
-		shutdownChan       = make(chan error)
-	)
+	errChan := make(chan error)
+	shutdownChan := make(chan error)
 
 	go func() {
 		defer close(errChan)
@@ -62,29 +51,23 @@ func (s *RunnerSuite) TestRunOrder(t sweet.T) {
 	}()
 
 	// Initializers
-	Eventually(init).Should(Receive(Equal("a")))
-	Eventually(init).Should(Receive(Equal("b")))
-	Eventually(init).Should(Receive(Equal("c")))
+	eventually(t, stringChanReceivesOrdered(init, "a", "b", "c"))
 
 	// Priority index 0
-	Eventually(init).Should(Receive(Equal("d")))
-	Eventually(init).Should(Receive(Equal("h")))
+	eventually(t, stringChanReceivesOrdered(init, "d", "h"))
 
 	// May start in either order
-	Eventually(start).Should(Receive(&n1))
-	Eventually(start).Should(Receive(&n2))
-	Expect([]string{n1, n2}).To(ConsistOf("d", "h"))
+	eventually(t, stringChanReceivesUnordered(start, "d", "h"))
 
 	// Priority index 1
-	Eventually(init).Should(Receive(Equal("g")))
-	Eventually(start).Should(Receive(Equal("g")))
+	eventually(t, stringChanReceivesOrdered(init, "g"))
+	eventually(t, stringChanReceivesUnordered(start, "g"))
 
 	// Priority index 2
-	Eventually(init).Should(Receive(Equal("e")))
-	Eventually(init).Should(Receive(Equal("f")))
-	Eventually(start).Should(Receive(&n1))
-	Eventually(start).Should(Receive(&n2))
-	Expect([]string{n1, n2}).To(ConsistOf("e", "f"))
+	eventually(t, stringChanReceivesOrdered(init, "e", "f"))
+
+	// May start in either order
+	eventually(t, stringChanReceivesUnordered(start, "e", "f"))
 
 	go func() {
 		defer close(shutdownChan)
@@ -92,40 +75,28 @@ func (s *RunnerSuite) TestRunOrder(t sweet.T) {
 	}()
 
 	// May stop in any order
-	Eventually(stop).Should(Receive(&n1))
-	Eventually(stop).Should(Receive(&n2))
-	Eventually(stop).Should(Receive(&n3))
-	Eventually(stop).Should(Receive(&n4))
-	Eventually(stop).Should(Receive(&n5))
-	Expect([]string{n1, n2, n3, n4, n5}).To(ConsistOf("d", "e", "f", "g", "h"))
+	eventually(t, stringChanReceivesUnordered(stop, "d", "e", "f", "g", "h"))
 
 	// Finalizers
-	Eventually(finalize).Should(Receive(&n1))
-	Eventually(finalize).Should(Receive(&n2))
-	Expect([]string{n1, n2}).To(Equal([]string{"c", "a"}))
+	eventually(t, stringChanReceivesUnordered(finalize, "a", "c"))
 
 	// Ensure unblocked
-	Eventually(shutdownChan).Should(Receive(BeNil()))
-	Eventually(shutdownChan).Should(BeClosed())
-	Eventually(errChan).Should(BeClosed())
+	eventually(t, errorChanClosed(shutdownChan))
+	eventually(t, errorChanClosed(errChan))
 }
 
-func (s *RunnerSuite) TestEarlyExit(t sweet.T) {
-	var (
-		services  = service.NewServiceContainer()
-		processes = NewProcessContainer()
-		health    = NewHealth()
-		runner    = NewRunner(processes, services, health)
-		init      = make(chan string)
-		start     = make(chan string)
-		stop      = make(chan string)
-		errChan   = make(chan error)
-	)
+func TestRunnerEarlyExit(t *testing.T) {
+	services := service.NewServiceContainer()
+	processes := NewProcessContainer()
+	health := NewHealth()
+	runner := NewRunner(processes, services, health)
+	init := make(chan string)
+	start := make(chan string)
+	stop := make(chan string)
+	errChan := make(chan error)
 
-	var (
-		p1 = newTaggedProcess(init, start, stop, "a")
-		p2 = newTaggedProcess(init, start, stop, "b")
-	)
+	p1 := newTaggedProcess(init, start, stop, "a")
+	p2 := newTaggedProcess(init, start, stop, "b")
 
 	// Register things
 	processes.RegisterProcess(p1)
@@ -139,38 +110,28 @@ func (s *RunnerSuite) TestEarlyExit(t sweet.T) {
 		}
 	}()
 
-	Eventually(init).Should(Receive(Equal("a")))
-	Eventually(init).Should(Receive(Equal("b")))
-	Eventually(start).Should(Receive())
-	Eventually(start).Should(Receive())
+	eventually(t, stringChanReceivesOrdered(init, "a", "b"))
+	eventually(t, stringChanReceivesN(start, 2))
 
 	go p2.Stop()
 
 	// Stopping one process should shutdown the rest
-	Eventually(stop).Should(Receive(Equal("b")))
-
-	var n1, n2 string
-	Eventually(stop).Should(Receive(&n1))
-	Eventually(stop).Should(Receive(&n2))
-	Expect([]string{n1, n2}).To(ConsistOf("a", "b"))
-	Eventually(errChan).Should(BeClosed())
+	eventually(t, stringChanReceivesUnordered(stop, "b"))
+	eventually(t, stringChanReceivesUnordered(stop, "a", "b"))
+	eventually(t, errorChanClosed(errChan))
 }
 
-func (s *RunnerSuite) TestSilentExit(t sweet.T) {
-	var (
-		services  = service.NewServiceContainer()
-		processes = NewProcessContainer()
-		health    = NewHealth()
-		runner    = NewRunner(processes, services, health)
-		init      = make(chan string)
-		start     = make(chan string)
-		stop      = make(chan string)
-	)
+func TestRunnerSilentExit(t *testing.T) {
+	services := service.NewServiceContainer()
+	processes := NewProcessContainer()
+	health := NewHealth()
+	runner := NewRunner(processes, services, health)
+	init := make(chan string)
+	start := make(chan string)
+	stop := make(chan string)
 
-	var (
-		p1 = newTaggedProcess(init, start, stop, "a")
-		p2 = newTaggedProcess(init, start, stop, "b")
-	)
+	p1 := newTaggedProcess(init, start, stop, "a")
+	p2 := newTaggedProcess(init, start, stop, "b")
 
 	// Register things
 	processes.RegisterProcess(p1)
@@ -178,31 +139,24 @@ func (s *RunnerSuite) TestSilentExit(t sweet.T) {
 
 	go runner.Run(nil)
 
-	Eventually(init).Should(Receive(Equal("a")))
-	Eventually(init).Should(Receive(Equal("b")))
-	Eventually(start).Should(Receive())
-	Eventually(start).Should(Receive())
+	eventually(t, stringChanReceivesOrdered(init, "a", "b"))
+	eventually(t, stringChanReceivesN(start, 2))
 
 	go p2.Stop()
 
-	var n1 string
-	Eventually(stop).Should(Receive(&n1))
-	Expect(n1).To(Equal("b"))
-	Consistently(stop).ShouldNot(Receive())
+	eventually(t, stringChanReceivesUnordered(stop, "b"))
 }
 
-func (s *RunnerSuite) TestShutdownTimeout(t sweet.T) {
-	var (
-		services     = service.NewServiceContainer()
-		processes    = NewProcessContainer()
-		health       = NewHealth()
-		clock        = glock.NewMockClock()
-		runner       = NewRunner(processes, services, health, WithClock(clock))
-		sync         = make(chan struct{})
-		process      = newBlockingProcess(sync)
-		errChan      = make(chan error)
-		shutdownChan = make(chan error)
-	)
+func TestRunnerShutdownTimeout(t *testing.T) {
+	services := service.NewServiceContainer()
+	processes := NewProcessContainer()
+	health := NewHealth()
+	clock := glock.NewMockClock()
+	runner := NewRunner(processes, services, health, WithClock(clock))
+	sync := make(chan struct{})
+	process := newBlockingProcess(sync)
+	errChan := make(chan error)
+	shutdownChan := make(chan error)
 
 	// Register things
 	processes.RegisterProcess(process)
@@ -215,7 +169,7 @@ func (s *RunnerSuite) TestShutdownTimeout(t sweet.T) {
 		}
 	}()
 
-	Eventually(sync).Should(BeClosed())
+	eventually(t, structChanClosed(sync))
 
 	go func() {
 		defer close(shutdownChan)
@@ -223,36 +177,32 @@ func (s *RunnerSuite) TestShutdownTimeout(t sweet.T) {
 	}()
 
 	clock.BlockingAdvance(time.Minute)
-	Eventually(shutdownChan).Should(Receive(MatchError("process runner did not shutdown within timeout")))
+	eventually(t, errorChanReceivesUnordered(shutdownChan, "process runner did not shutdown within timeout"))
 }
 
-func (s *RunnerSuite) TestProcessStartTimeout(t sweet.T) {
-	var (
-		services  = service.NewServiceContainer()
-		processes = NewProcessContainer()
-		health    = NewHealth()
-		clock     = glock.NewMockClock()
-		init      = make(chan string)
-		start     = make(chan string)
-		stop      = make(chan string)
-		errChan   = make(chan error)
-		runner    = NewRunner(
-			processes,
-			services,
-			health,
-			WithClock(clock),
-			WithStartTimeout(time.Minute),
-		)
+func TestRunnerProcessStartTimeout(t *testing.T) {
+	services := service.NewServiceContainer()
+	processes := NewProcessContainer()
+	health := NewHealth()
+	clock := glock.NewMockClock()
+	init := make(chan string)
+	start := make(chan string)
+	stop := make(chan string)
+	errChan := make(chan error)
+	runner := NewRunner(
+		processes,
+		services,
+		health,
+		WithClock(clock),
+		WithStartTimeout(time.Minute),
 	)
 
 	// Stop the process from going healthy
 	health.AddReason("oops1")
 	health.AddReason("oops2")
 
-	var (
-		p1 = newTaggedProcess(init, start, stop, "a")
-		p2 = newTaggedProcess(init, start, stop, "b")
-	)
+	p1 := newTaggedProcess(init, start, stop, "a")
+	p2 := newTaggedProcess(init, start, stop, "b")
 
 	processes.RegisterProcess(
 		p1,
@@ -275,41 +225,30 @@ func (s *RunnerSuite) TestProcessStartTimeout(t sweet.T) {
 	}()
 
 	// Don't block startup
-	Eventually(init).Should(Receive())
-	Eventually(init).Should(Receive())
-	Eventually(start).Should(Receive())
-	Eventually(start).Should(Receive())
+	eventually(t, stringChanReceivesN(init, 2))
+	eventually(t, stringChanReceivesN(start, 2))
 
 	// Ensure timeout is respected
-	Consistently(errChan).ShouldNot(Receive())
+	consistently(t, errorChanDoesNotReceive(errChan))
 	clock.Advance(time.Second * 30)
 
 	// Watcher should shut down
-	Eventually(stop).Should(Receive())
-	Eventually(stop).Should(Receive())
-
-	var err error
-	Eventually(errChan).Should(Receive(&err))
-	Eventually(errChan).Should(BeClosed())
+	eventually(t, stringChanReceivesN(stop, 2))
 
 	// Check error message
-	Expect(err).NotTo(BeNil())
-	Expect(err.Error()).To(ContainSubstring("process did not become healthy within timeout"))
-	Expect(err.Error()).To(ContainSubstring("oops1"))
-	Expect(err.Error()).To(ContainSubstring("oops2"))
+	eventually(t, errorChanReceivesUnordered(errChan, "process did not become healthy within timeout - outstanding reasons: oops1, oops2"))
+	eventually(t, errorChanClosed(errChan))
 }
 
-func (s *RunnerSuite) TestProcessShutdownTimeout(t sweet.T) {
-	var (
-		services  = service.NewServiceContainer()
-		processes = NewProcessContainer()
-		health    = NewHealth()
-		clock     = glock.NewMockClock()
-		runner    = NewRunner(processes, services, health, WithClock(clock))
-		init      = make(chan string)
-		start     = make(chan string)
-		stop      = make(chan string)
-	)
+func TestRunnerProcessShutdownTimeout(t *testing.T) {
+	services := service.NewServiceContainer()
+	processes := NewProcessContainer()
+	health := NewHealth()
+	clock := glock.NewMockClock()
+	runner := NewRunner(processes, services, health, WithClock(clock))
+	init := make(chan string)
+	start := make(chan string)
+	stop := make(chan string)
 
 	processes.RegisterProcess(
 		newTaggedProcess(init, start, stop, "a"),
@@ -317,10 +256,8 @@ func (s *RunnerSuite) TestProcessShutdownTimeout(t sweet.T) {
 		WithProcessShutdownTimeout(time.Second*10),
 	)
 
-	var (
-		errChan      = make(chan error)
-		shutdownChan = make(chan error)
-	)
+	errChan := make(chan error)
+	shutdownChan := make(chan error)
 
 	go func() {
 		defer close(errChan)
@@ -338,40 +275,35 @@ func (s *RunnerSuite) TestProcessShutdownTimeout(t sweet.T) {
 		shutdownChan <- runner.Shutdown(time.Minute)
 	}()
 
-	Eventually(init).Should(Receive())
-	Eventually(stop).Should(Receive())
+	eventually(t, stringChanReceivesN(init, 1))
+	eventually(t, stringChanReceivesN(stop, 1))
 
 	// Blocked on process start method
-	Consistently(shutdownChan).ShouldNot(Receive())
+	consistently(t, errorChanDoesNotReceive(shutdownChan))
 	clock.Advance(time.Second * 5)
-	Consistently(shutdownChan).ShouldNot(Receive())
+	consistently(t, errorChanDoesNotReceive(shutdownChan))
 	clock.Advance(time.Second * 5)
 
 	// Unblock after timeout
-	Eventually(shutdownChan).Should(Receive(BeNil()))
-	Eventually(shutdownChan).Should(BeClosed())
-	Eventually(errChan).Should(Receive(MatchError("a did not shutdown within timeout")))
-	Eventually(errChan).Should(BeClosed())
+	eventually(t, errorChanClosed(shutdownChan))
+	eventually(t, errorChanReceivesUnordered(errChan, "a did not shutdown within timeout"))
+	eventually(t, errorChanClosed(errChan))
 }
 
-func (s *RunnerSuite) TestInitializerInjectionError(t sweet.T) {
-	var (
-		services  = service.NewServiceContainer()
-		processes = NewProcessContainer()
-		health    = NewHealth()
-		runner    = NewRunner(processes, services, health)
-		init      = make(chan string)
-		start     = make(chan string)
-		stop      = make(chan string)
-		errChan   = make(chan error)
-	)
+func TestRunnerInitializerInjectionError(t *testing.T) {
+	services := service.NewServiceContainer()
+	processes := NewProcessContainer()
+	health := NewHealth()
+	runner := NewRunner(processes, services, health)
+	init := make(chan string)
+	start := make(chan string)
+	stop := make(chan string)
+	errChan := make(chan error)
 
-	var (
-		i1 = newTaggedInitializer(init, "a")
-		i2 = newInitializerWithService()
-		i3 = newTaggedInitializer(init, "c")
-		p1 = newTaggedProcess(init, start, stop, "d")
-	)
+	i1 := newTaggedInitializer(init, "a")
+	i2 := newInitializerWithService()
+	i3 := newTaggedInitializer(init, "c")
+	p1 := newTaggedProcess(init, start, stop, "d")
 
 	// Register things
 	processes.RegisterInitializer(i1)
@@ -388,42 +320,34 @@ func (s *RunnerSuite) TestInitializerInjectionError(t sweet.T) {
 	}()
 
 	// Ensure error is encountered
-	Eventually(init).Should(Receive(Equal("a")))
-	Consistently(init).ShouldNot(Receive())
-
-	var err error
-	Eventually(errChan).Should(Receive(&err))
-	Expect(err).NotTo(BeNil())
-	Expect(err.Error()).To(ContainSubstring("failed to inject services into b"))
+	eventually(t, stringChanReceivesOrdered(init, "a"))
+	consistently(t, stringChanDoesNotReceive(init))
+	eventually(t, errorChanReceivesUnordered(errChan, "failed to inject services into b"))
 
 	// Nothing else called
-	Consistently(init).ShouldNot(Receive())
-	Consistently(start).ShouldNot(Receive())
-	Eventually(errChan).Should(BeClosed())
+	consistently(t, stringChanDoesNotReceive(init))
+	consistently(t, stringChanDoesNotReceive(start))
+	eventually(t, errorChanClosed(errChan))
 }
 
-func (s *RunnerSuite) TestProcessInjectionError(t sweet.T) {
-	var (
-		services  = service.NewServiceContainer()
-		processes = NewProcessContainer()
-		health    = NewHealth()
-		runner    = NewRunner(processes, services, health)
-		init      = make(chan string)
-		start     = make(chan string)
-		stop      = make(chan string)
-		errChan   = make(chan error)
-	)
+func TestRunnerProcessInjectionError(t *testing.T) {
+	services := service.NewServiceContainer()
+	processes := NewProcessContainer()
+	health := NewHealth()
+	runner := NewRunner(processes, services, health)
+	init := make(chan string)
+	start := make(chan string)
+	stop := make(chan string)
+	errChan := make(chan error)
 
-	var (
-		i1 = newTaggedInitializer(init, "a")
-		i2 = newTaggedInitializer(init, "b")
-		i3 = newTaggedInitializer(init, "c")
-		p1 = newTaggedProcess(init, start, stop, "d")
-		p2 = newTaggedProcess(init, start, stop, "e")
-		p3 = newProcessWithService()
-		p4 = newTaggedProcess(init, start, stop, "g")
-		p5 = newTaggedProcess(init, start, stop, "h")
-	)
+	i1 := newTaggedInitializer(init, "a")
+	i2 := newTaggedInitializer(init, "b")
+	i3 := newTaggedInitializer(init, "c")
+	p1 := newTaggedProcess(init, start, stop, "d")
+	p2 := newTaggedProcess(init, start, stop, "e")
+	p3 := newProcessWithService()
+	p4 := newTaggedProcess(init, start, stop, "g")
+	p5 := newTaggedProcess(init, start, stop, "h")
 
 	// Register things
 	processes.RegisterInitializer(i1)
@@ -444,40 +368,31 @@ func (s *RunnerSuite) TestProcessInjectionError(t sweet.T) {
 	}()
 
 	// Initializers
-	Eventually(init).Should(Receive(Equal("a")))
-	Eventually(init).Should(Receive(Equal("b")))
-	Eventually(init).Should(Receive(Equal("c")))
+	eventually(t, stringChanReceivesOrdered(init, "a", "b", "c"))
 
 	// All processes are injected before any are initialized
-	Consistently(init).ShouldNot(Receive())
+	consistently(t, stringChanDoesNotReceive(init))
 
-	var err error
-	Eventually(errChan).Should(Receive(&err))
-	Expect(err).NotTo(BeNil())
-	Expect(err.Error()).To(ContainSubstring("failed to inject services into f"))
+	eventually(t, errorChanReceivesUnordered(errChan, "failed to inject services into f"))
 
 	// Nothing else called
-	Consistently(init).ShouldNot(Receive())
-	Consistently(start).ShouldNot(Receive())
-	Consistently(stop).ShouldNot(Receive())
-	Eventually(errChan).Should(BeClosed())
+	consistently(t, stringChanDoesNotReceive(init))
+	consistently(t, stringChanDoesNotReceive(start))
+	consistently(t, stringChanDoesNotReceive(stop))
+	eventually(t, errorChanClosed(errChan))
 }
 
-func (s *RunnerSuite) TestInitializerInitTimeout(t sweet.T) {
-	var (
-		services  = service.NewServiceContainer()
-		processes = NewProcessContainer()
-		health    = NewHealth()
-		clock     = glock.NewMockClock()
-		runner    = NewRunner(processes, services, health, WithClock(clock))
-		init      = make(chan string)
-		errChan   = make(chan error)
-	)
+func TestRunnerInitializerInitTimeout(t *testing.T) {
+	services := service.NewServiceContainer()
+	processes := NewProcessContainer()
+	health := NewHealth()
+	clock := glock.NewMockClock()
+	runner := NewRunner(processes, services, health, WithClock(clock))
+	init := make(chan string)
+	errChan := make(chan error)
 
-	var (
-		i1 = newTaggedInitializer(init, "a")
-		i2 = newTaggedInitializer(init, "b")
-	)
+	i1 := newTaggedInitializer(init, "a")
+	i2 := newTaggedInitializer(init, "b")
 
 	// Register things
 	processes.RegisterInitializer(i1, WithInitializerName("a"))
@@ -492,33 +407,29 @@ func (s *RunnerSuite) TestInitializerInitTimeout(t sweet.T) {
 	}()
 
 	// Don't read second value - this blocks i2.Init
-	Eventually(init).Should(Receive(Equal("a")))
+	eventually(t, stringChanReceivesOrdered(init, "a"))
 
 	// Ensure error / unblocked
 	clock.BlockingAdvance(time.Minute)
-	Eventually(errChan).Should(Receive(MatchError("b did not initialize within timeout")))
-	Eventually(errChan).Should(BeClosed())
+	eventually(t, errorChanReceivesUnordered(errChan, "b did not initialize within timeout"))
+	eventually(t, errorChanClosed(errChan))
 }
 
-func (s *RunnerSuite) TestFinalizerFinalizeTimeout(t sweet.T) {
-	var (
-		services  = service.NewServiceContainer()
-		processes = NewProcessContainer()
-		health    = NewHealth()
-		clock     = glock.NewMockClock()
-		runner    = NewRunner(processes, services, health, WithClock(clock))
-		init      = make(chan string)
-		finalize  = make(chan string)
-		start     = make(chan string)
-		stop      = make(chan string)
-		errChan   = make(chan error)
-	)
+func TestRunnerFinalizerFinalizeTimeout(t *testing.T) {
+	services := service.NewServiceContainer()
+	processes := NewProcessContainer()
+	health := NewHealth()
+	clock := glock.NewMockClock()
+	runner := NewRunner(processes, services, health, WithClock(clock))
+	init := make(chan string)
+	finalize := make(chan string)
+	start := make(chan string)
+	stop := make(chan string)
+	errChan := make(chan error)
 
-	var (
-		i1 = newTaggedFinalizer(init, finalize, "a")
-		i2 = newTaggedFinalizer(init, finalize, "b")
-		p1 = newTaggedProcess(init, start, stop, "c")
-	)
+	i1 := newTaggedFinalizer(init, finalize, "a")
+	i2 := newTaggedFinalizer(init, finalize, "b")
+	p1 := newTaggedProcess(init, start, stop, "c")
 
 	// Register things
 	processes.RegisterInitializer(i1, WithInitializerName("a"), WithFinalizerTimeout(time.Minute))
@@ -533,41 +444,35 @@ func (s *RunnerSuite) TestFinalizerFinalizeTimeout(t sweet.T) {
 		}
 	}()
 
-	Eventually(init).Should(Receive(Equal("a")))
-	Eventually(init).Should(Receive(Equal("b")))
-	Eventually(init).Should(Receive(Equal("c")))
-	Eventually(start).Should(Receive(Equal("c")))
+	eventually(t, stringChanReceivesOrdered(init, "a", "b", "c"))
+	eventually(t, stringChanReceivesUnordered(start, "c"))
 
 	// Shutdown
 	go runner.Shutdown(0)
-	Eventually(stop).Should(Receive())
+	eventually(t, stringChanReceivesN(stop, 1))
 
 	// Finalize first initializer
-	Eventually(finalize).Should(Receive(Equal("b")))
-	Consistently(errChan).ShouldNot(Receive())
+	eventually(t, stringChanReceivesUnordered(finalize, "b"))
+	consistently(t, errorChanDoesNotReceive(errChan))
 
 	// Timeout second finalizer
 	clock.BlockingAdvance(time.Minute)
-	Eventually(errChan).Should(Receive(MatchError("a did not finalize within timeout")))
-	Eventually(errChan).Should(BeClosed())
+	eventually(t, errorChanReceivesUnordered(errChan, "a did not finalize within timeout"))
+	eventually(t, errorChanClosed(errChan))
 }
 
-func (s *RunnerSuite) TestFinalizerError(t sweet.T) {
-	var (
-		services  = service.NewServiceContainer()
-		processes = NewProcessContainer()
-		health    = NewHealth()
-		runner    = NewRunner(processes, services, health)
-		init      = make(chan string)
-		finalize  = make(chan string)
-		errChan   = make(chan error)
-	)
+func TestRunnerFinalizerError(t *testing.T) {
+	services := service.NewServiceContainer()
+	processes := NewProcessContainer()
+	health := NewHealth()
+	runner := NewRunner(processes, services, health)
+	init := make(chan string)
+	finalize := make(chan string)
+	errChan := make(chan error)
 
-	var (
-		i1 = newTaggedFinalizer(init, finalize, "a")
-		i2 = newTaggedFinalizer(init, finalize, "b")
-		i3 = newTaggedFinalizer(init, finalize, "c")
-	)
+	i1 := newTaggedFinalizer(init, finalize, "a")
+	i2 := newTaggedFinalizer(init, finalize, "b")
+	i3 := newTaggedFinalizer(init, finalize, "c")
 
 	// Register things
 	processes.RegisterInitializer(i1, WithInitializerName("a"))
@@ -586,47 +491,34 @@ func (s *RunnerSuite) TestFinalizerError(t sweet.T) {
 		}
 	}()
 
-	for i := 0; i < 3; i++ {
-		Eventually(init).Should(Receive())
-	}
-
-	for i := 0; i < 3; i++ {
-		Eventually(finalize).Should(Receive())
-	}
+	eventually(t, stringChanReceivesN(init, 3))
+	eventually(t, stringChanReceivesN(finalize, 3))
 
 	// Stop should emit errors but continue running
 	// the remaining finalizers.
 
-	var err1, err2, err3 error
-	Eventually(errChan).Should(Receive(&err1))
-	Eventually(errChan).Should(Receive(&err2))
-	Eventually(errChan).Should(Receive(&err3))
-	Eventually(errChan).Should(BeClosed())
-
-	Expect([]string{err1.Error(), err2.Error(), err3.Error()}).To(ConsistOf(
+	eventually(t, errorChanReceivesUnordered(
+		errChan,
 		"c returned error from finalize (oops z)",
 		"b returned error from finalize (oops y)",
 		"a returned error from finalize (oops x)",
 	))
+	eventually(t, errorChanClosed(errChan))
 }
 
-func (s *RunnerSuite) TestProcessInitTimeout(t sweet.T) {
-	var (
-		services  = service.NewServiceContainer()
-		processes = NewProcessContainer()
-		health    = NewHealth()
-		clock     = glock.NewMockClock()
-		runner    = NewRunner(processes, services, health, WithClock(clock))
-		init      = make(chan string)
-		start     = make(chan string)
-		stop      = make(chan string)
-		errChan   = make(chan error)
-	)
+func TestRunnerProcessInitTimeout(t *testing.T) {
+	services := service.NewServiceContainer()
+	processes := NewProcessContainer()
+	health := NewHealth()
+	clock := glock.NewMockClock()
+	runner := NewRunner(processes, services, health, WithClock(clock))
+	init := make(chan string)
+	start := make(chan string)
+	stop := make(chan string)
+	errChan := make(chan error)
 
-	var (
-		p1 = newTaggedProcess(init, start, stop, "a")
-		p2 = newTaggedProcess(init, start, stop, "b")
-	)
+	p1 := newTaggedProcess(init, start, stop, "a")
+	p2 := newTaggedProcess(init, start, stop, "b")
 
 	// Register things
 	processes.RegisterProcess(p1, WithProcessName("a"))
@@ -641,33 +533,29 @@ func (s *RunnerSuite) TestProcessInitTimeout(t sweet.T) {
 	}()
 
 	// Don't read second value - this blocks i2.Init
-	Eventually(init).Should(Receive(Equal("a")))
+	eventually(t, stringChanReceivesOrdered(init, "a"))
 
 	// Ensure error / unblocked
 	clock.BlockingAdvance(time.Minute)
-	Eventually(errChan).Should(Receive(MatchError("b did not initialize within timeout")))
-	Eventually(errChan).Should(BeClosed())
+	eventually(t, errorChanReceivesUnordered(errChan, "b did not initialize within timeout"))
+	eventually(t, errorChanClosed(errChan))
 }
 
-func (s *RunnerSuite) TestInitializerError(t sweet.T) {
-	var (
-		services  = service.NewServiceContainer()
-		processes = NewProcessContainer()
-		health    = NewHealth()
-		runner    = NewRunner(processes, services, health)
-		init      = make(chan string)
-		finalize  = make(chan string)
-		start     = make(chan string)
-		stop      = make(chan string)
-		errChan   = make(chan error)
-	)
+func TestRunnerInitializerError(t *testing.T) {
+	services := service.NewServiceContainer()
+	processes := NewProcessContainer()
+	health := NewHealth()
+	runner := NewRunner(processes, services, health)
+	init := make(chan string)
+	finalize := make(chan string)
+	start := make(chan string)
+	stop := make(chan string)
+	errChan := make(chan error)
 
-	var (
-		i1 = newTaggedFinalizer(init, finalize, "a")
-		i2 = newTaggedFinalizer(init, finalize, "b")
-		i3 = newTaggedInitializer(init, "c")
-		p1 = newTaggedProcess(init, start, stop, "d")
-	)
+	i1 := newTaggedFinalizer(init, finalize, "a")
+	i2 := newTaggedFinalizer(init, finalize, "b")
+	i3 := newTaggedInitializer(init, "c")
+	p1 := newTaggedProcess(init, start, stop, "d")
 
 	i2.initErr = fmt.Errorf("oops")
 
@@ -686,44 +574,37 @@ func (s *RunnerSuite) TestInitializerError(t sweet.T) {
 	}()
 
 	// Check run order
-	var n1 string
-	Eventually(init).Should(Receive(Equal("a")))
-	Eventually(init).Should(Receive(Equal("b")))
-	Eventually(finalize).Should(Receive(&n1))
-	Expect(n1).To(Equal("a"))
+	eventually(t, stringChanReceivesOrdered(init, "a", "b"))
+	eventually(t, stringChanReceivesUnordered(finalize, "a"))
 
 	// Ensure error is encountered
-	Eventually(errChan).Should(Receive(MatchError("failed to initialize b (oops)")))
+	eventually(t, errorChanReceivesUnordered(errChan, "failed to initialize b (oops)"))
 
 	// Nothing else called
-	Consistently(init).ShouldNot(Receive())
-	Consistently(start).ShouldNot(Receive())
-	Consistently(finalize).ShouldNot(Receive())
-	Eventually(errChan).Should(BeClosed())
+	consistently(t, stringChanDoesNotReceive(init))
+	consistently(t, stringChanDoesNotReceive(start))
+	consistently(t, stringChanDoesNotReceive(finalize))
+	eventually(t, errorChanClosed(errChan))
 }
 
-func (s *RunnerSuite) TestProcessInitError(t sweet.T) {
-	var (
-		services  = service.NewServiceContainer()
-		processes = NewProcessContainer()
-		health    = NewHealth()
-		runner    = NewRunner(processes, services, health)
-		init      = make(chan string)
-		start     = make(chan string)
-		stop      = make(chan string)
-		errChan   = make(chan error)
-	)
+func TestRunnerProcessInitError(t *testing.T) {
+	services := service.NewServiceContainer()
+	processes := NewProcessContainer()
+	health := NewHealth()
+	runner := NewRunner(processes, services, health)
+	init := make(chan string)
+	start := make(chan string)
+	stop := make(chan string)
+	errChan := make(chan error)
 
-	var (
-		i1 = newTaggedInitializer(init, "a")
-		i2 = newTaggedInitializer(init, "b")
-		i3 = newTaggedInitializer(init, "c")
-		p1 = newTaggedProcess(init, start, stop, "d")
-		p2 = newTaggedProcess(init, start, stop, "e")
-		p3 = newTaggedProcess(init, start, stop, "f")
-		p4 = newTaggedProcess(init, start, stop, "g")
-		p5 = newTaggedProcess(init, start, stop, "h")
-	)
+	i1 := newTaggedInitializer(init, "a")
+	i2 := newTaggedInitializer(init, "b")
+	i3 := newTaggedInitializer(init, "c")
+	p1 := newTaggedProcess(init, start, stop, "d")
+	p2 := newTaggedProcess(init, start, stop, "e")
+	p3 := newTaggedProcess(init, start, stop, "f")
+	p4 := newTaggedProcess(init, start, stop, "g")
+	p5 := newTaggedProcess(init, start, stop, "h")
 
 	// Register things
 	processes.RegisterInitializer(i1)
@@ -746,55 +627,45 @@ func (s *RunnerSuite) TestProcessInitError(t sweet.T) {
 	}()
 
 	// Initializers
-	Eventually(init).Should(Receive(Equal("a")))
-	Eventually(init).Should(Receive(Equal("b")))
-	Eventually(init).Should(Receive(Equal("c")))
+
+	eventually(t, stringChanReceivesOrdered(init, "a", "b", "c"))
 
 	// Lower-priority process
-	Eventually(init).Should(Receive(Equal("d")))
-	Eventually(start).Should(Receive(Equal("d")))
+	eventually(t, stringChanReceivesOrdered(init, "d"))
+	eventually(t, stringChanReceivesUnordered(start, "d"))
 
 	// Ensure error is encountered
-	Eventually(init).Should(Receive(Equal("e")))
-	Eventually(init).Should(Receive(Equal("f")))
-
-	var err error
-	Eventually(errChan).Should(Receive(&err))
-	Expect(err).To(MatchError("failed to initialize f (oops)"))
-
-	Consistently(init).ShouldNot(Receive())
+	eventually(t, stringChanReceivesOrdered(init, "e", "f"))
+	eventually(t, errorChanReceivesUnordered(errChan, "failed to initialize f (oops)"))
+	consistently(t, stringChanDoesNotReceive(init))
 
 	// Shutdown only things that started
-	Eventually(stop).Should(Receive(Equal("d")))
-	Consistently(stop).ShouldNot(Receive())
+	eventually(t, stringChanReceivesUnordered(stop, "d"))
+	consistently(t, stringChanDoesNotReceive(stop))
 
 	// Nothing else called
-	Consistently(init).ShouldNot(Receive())
-	Consistently(start).ShouldNot(Receive())
-	Eventually(errChan).Should(BeClosed())
+	consistently(t, stringChanDoesNotReceive(init))
+	consistently(t, stringChanDoesNotReceive(stop))
+	eventually(t, errorChanClosed(errChan))
 }
 
-func (s *RunnerSuite) TestProcessStartError(t sweet.T) {
-	var (
-		services  = service.NewServiceContainer()
-		processes = NewProcessContainer()
-		health    = NewHealth()
-		runner    = NewRunner(processes, services, health)
-		init      = make(chan string)
-		start     = make(chan string)
-		stop      = make(chan string)
-	)
+func TestRunnerProcessStartError(t *testing.T) {
+	services := service.NewServiceContainer()
+	processes := NewProcessContainer()
+	health := NewHealth()
+	runner := NewRunner(processes, services, health)
+	init := make(chan string)
+	start := make(chan string)
+	stop := make(chan string)
 
-	var (
-		i1 = newTaggedInitializer(init, "a")
-		i2 = newTaggedInitializer(init, "b")
-		i3 = newTaggedInitializer(init, "c")
-		p1 = newTaggedProcess(init, start, stop, "d")
-		p2 = newTaggedProcess(init, start, stop, "e")
-		p3 = newTaggedProcess(init, start, stop, "f")
-		p4 = newTaggedProcess(init, start, stop, "g")
-		p5 = newTaggedProcess(init, start, stop, "h")
-	)
+	i1 := newTaggedInitializer(init, "a")
+	i2 := newTaggedInitializer(init, "b")
+	i3 := newTaggedInitializer(init, "c")
+	p1 := newTaggedProcess(init, start, stop, "d")
+	p2 := newTaggedProcess(init, start, stop, "e")
+	p3 := newTaggedProcess(init, start, stop, "f")
+	p4 := newTaggedProcess(init, start, stop, "g")
+	p5 := newTaggedProcess(init, start, stop, "h")
 
 	// Register things
 	processes.RegisterInitializer(i1)
@@ -808,10 +679,7 @@ func (s *RunnerSuite) TestProcessStartError(t sweet.T) {
 
 	p3.startErr = fmt.Errorf("oops")
 
-	var (
-		n1, n2, n3, n4 string
-		errChan        = make(chan error)
-	)
+	errChan := make(chan error)
 
 	go func() {
 		defer close(errChan)
@@ -822,31 +690,19 @@ func (s *RunnerSuite) TestProcessStartError(t sweet.T) {
 	}()
 
 	// Initializers
-	Eventually(init).Should(Receive(Equal("a")))
-	Eventually(init).Should(Receive(Equal("b")))
-	Eventually(init).Should(Receive(Equal("c")))
+	eventually(t, stringChanReceivesOrdered(init, "a", "b", "c"))
 
 	// Lower-priority process
-	Eventually(init).Should(Receive(Equal("d")))
-	Eventually(start).Should(Receive(Equal("d")))
+	eventually(t, stringChanReceivesOrdered(init, "d"))
+	eventually(t, stringChanReceivesUnordered(start, "d"))
 
-	// Ensure error is encountered
-	Eventually(init).Should(Receive(Equal("e")))
-	Eventually(init).Should(Receive(Equal("f")))
-	Eventually(init).Should(Receive(Equal("g")))
-
-	Eventually(start).Should(Receive(&n1))
-	Eventually(start).Should(Receive(&n2))
-	Eventually(start).Should(Receive(&n3))
-	Expect([]string{n1, n2, n3}).To(ConsistOf("e", "f", "g"))
+	// Higher-priority processes
+	eventually(t, stringChanReceivesOrdered(init, "e", "f", "g"))
+	eventually(t, stringChanReceivesUnordered(start, "e", "f", "g"))
 
 	// Shutdown everything that's started
-	Eventually(stop).Should(Receive(&n1))
-	Eventually(stop).Should(Receive(&n2))
-	Eventually(stop).Should(Receive(&n3))
-	Eventually(stop).Should(Receive(&n4))
-	Expect([]string{n1, n2, n3, n4}).To(ConsistOf("d", "e", "f", "g"))
-	Consistently(stop).ShouldNot(Receive())
+	eventually(t, stringChanReceivesUnordered(stop, "d", "e", "f", "g"))
+	consistently(t, stringChanDoesNotReceive(stop))
 
 	// We get a start error from a goroutine, which means that
 	// the next priority may be initializing. Since we're blocked
@@ -854,39 +710,32 @@ func (s *RunnerSuite) TestProcessStartError(t sweet.T) {
 	// the value of that process as well as the error from the
 	// failing process.
 
-	var err1, err2 error
-	Eventually(errChan).Should(Receive(&err1))
-	Eventually(errChan).Should(Receive(&err2))
-	Eventually(errChan).Should(BeClosed())
-
-	Expect([]string{err1.Error(), err2.Error()}).To(ConsistOf(
+	eventually(t, errorChanReceivesUnordered(
+		errChan,
 		"aborting initialization of h",
 		"f returned a fatal error (oops)",
 	))
+	eventually(t, errorChanClosed(errChan))
 }
 
-func (s *RunnerSuite) TestProcessStopError(t sweet.T) {
-	var (
-		services  = service.NewServiceContainer()
-		processes = NewProcessContainer()
-		health    = NewHealth()
-		runner    = NewRunner(processes, services, health)
-		init      = make(chan string)
-		start     = make(chan string)
-		stop      = make(chan string)
-		errChan   = make(chan error)
-	)
+func TestRunnerProcessStopError(t *testing.T) {
+	services := service.NewServiceContainer()
+	processes := NewProcessContainer()
+	health := NewHealth()
+	runner := NewRunner(processes, services, health)
+	init := make(chan string)
+	start := make(chan string)
+	stop := make(chan string)
+	errChan := make(chan error)
 
-	var (
-		i1 = newTaggedInitializer(init, "a")
-		i2 = newTaggedInitializer(init, "b")
-		i3 = newTaggedInitializer(init, "c")
-		p1 = newTaggedProcess(init, start, stop, "d")
-		p2 = newTaggedProcess(init, start, stop, "e")
-		p3 = newTaggedProcess(init, start, stop, "f")
-		p4 = newTaggedProcess(init, start, stop, "g")
-		p5 = newTaggedProcess(init, start, stop, "h")
-	)
+	i1 := newTaggedInitializer(init, "a")
+	i2 := newTaggedInitializer(init, "b")
+	i3 := newTaggedInitializer(init, "c")
+	p1 := newTaggedProcess(init, start, stop, "d")
+	p2 := newTaggedProcess(init, start, stop, "e")
+	p3 := newTaggedProcess(init, start, stop, "f")
+	p4 := newTaggedProcess(init, start, stop, "g")
+	p5 := newTaggedProcess(init, start, stop, "h")
 
 	// Register things
 	processes.RegisterInitializer(i1)
@@ -910,36 +759,25 @@ func (s *RunnerSuite) TestProcessStopError(t sweet.T) {
 		}
 	}()
 
-	for i := 0; i < 8; i++ {
-		Eventually(init).Should(Receive())
-	}
-
-	for i := 0; i < 5; i++ {
-		Eventually(start).Should(Receive())
-	}
+	eventually(t, stringChanReceivesN(init, 8))
+	eventually(t, stringChanReceivesN(start, 5))
 
 	// Shutdown
 	go runner.Shutdown(time.Minute)
 
-	for i := 0; i < 5; i++ {
-		Eventually(stop).Should(Receive())
-	}
+	eventually(t, stringChanReceivesN(stop, 5))
 
 	// Stop should emit errors but not block the progress
 	// of the runner in any significant way (stop is only
 	// called on shutdown, so cannot be double-fatal).
 
-	var err1, err2, err3 error
-	Eventually(errChan).Should(Receive(&err1))
-	Eventually(errChan).Should(Receive(&err2))
-	Eventually(errChan).Should(Receive(&err3))
-	Eventually(errChan).Should(BeClosed())
-
-	Expect([]string{err1.Error(), err2.Error(), err3.Error()}).To(ConsistOf(
+	eventually(t, errorChanReceivesUnordered(
+		errChan,
 		"d returned error from stop (oops x)",
 		"f returned error from stop (oops y)",
 		"h returned error from stop (oops z)",
 	))
+	eventually(t, errorChanClosed(errChan))
 }
 
 //

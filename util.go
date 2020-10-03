@@ -3,7 +3,7 @@ package process
 import (
 	"time"
 
-	"github.com/efritz/glock"
+	"github.com/derision-test/glock"
 )
 
 func makeTimeoutChan(clock glock.Clock, timeout time.Duration) <-chan time.Time {

@@ -7,7 +7,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/efritz/glock"
+	"github.com/derision-test/glock"
 	"github.com/go-nacelle/log"
 )
 
@@ -139,10 +139,8 @@ func (w *processWatcher) watchErrors() {
 }
 
 func (w *processWatcher) watchSignal() {
-	var (
-		urgent  = false
-		signals = make(chan os.Signal, 1)
-	)
+	urgent := false
+	signals := make(chan os.Signal, 1)
 
 	for _, s := range shutdownSignals {
 		signal.Notify(signals, s)

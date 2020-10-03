@@ -1,7 +1,7 @@
 package process
 
 import (
-	"github.com/efritz/glock"
+	"github.com/derision-test/glock"
 	"github.com/go-nacelle/log"
 	"github.com/go-nacelle/service"
 )

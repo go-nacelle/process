@@ -1,84 +1,94 @@
 package process
 
 import (
+	"sort"
+	"strings"
+	"testing"
 	"time"
 
-	"github.com/aphistic/sweet"
-	"github.com/efritz/glock"
-	. "github.com/onsi/gomega"
+	"github.com/derision-test/glock"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-type HealthSuite struct{}
-
-func (s *HealthSuite) TestReasons(t sweet.T) {
+func TestHealthReasons(t *testing.T) {
 	now := time.Now()
 	clock := glock.NewMockClock()
 	clock.SetCurrent(now)
 
 	health := NewHealth(WithHealthClock(clock))
-	Expect(health.LastChange()).To(BeZero())
+	assert.Equal(t, time.Duration(0), health.LastChange())
 
 	clock.Advance(time.Hour)
-	Expect(health.AddReason("foo")).To(BeNil())
-	Expect(health.HasReason("foo")).To(BeTrue())
+	require.Nil(t, health.AddReason("foo"))
+	assert.True(t, health.HasReason("foo"))
 	clock.Advance(time.Minute)
-	Expect(health.AddReason("bar")).To(BeNil())
-	Expect(health.HasReason("foo")).To(BeTrue())
-	Expect(health.HasReason("bar")).To(BeTrue())
+	require.Nil(t, health.AddReason("bar"))
+	assert.True(t, health.HasReason("foo"))
+	assert.True(t, health.HasReason("bar"))
 	clock.Advance(time.Minute)
-	Expect(health.AddReason("baz")).To(BeNil())
-	Expect(health.HasReason("foo")).To(BeTrue())
-	Expect(health.HasReason("bar")).To(BeTrue())
-	Expect(health.HasReason("baz")).To(BeTrue())
-	Expect(health.RemoveReason("bar")).To(BeNil())
-	Expect(health.HasReason("bar")).To(BeFalse())
+	require.Nil(t, health.AddReason("baz"))
+	assert.True(t, health.HasReason("foo"))
+	assert.True(t, health.HasReason("bar"))
+	assert.True(t, health.HasReason("baz"))
+	assert.Nil(t, health.RemoveReason("bar"))
+	assert.False(t, health.HasReason("bar"))
 
-	Expect(health.Reasons()).To(ConsistOf([]Reason{
-		Reason{Key: "foo", Added: now.Add(time.Hour)},
-		Reason{Key: "baz", Added: now.Add(time.Hour + time.Minute*2)},
-	}))
+	reasons := health.Reasons()
+	sort.Slice(reasons, func(i, j int) bool {
+		keyi := reasons[i].Key.(string)
+		keyj := reasons[j].Key.(string)
+
+		return strings.Compare(keyi, keyj) < 0
+	})
+
+	expected := []Reason{
+		{Key: "baz", Added: now.Add(time.Hour + time.Minute*2)},
+		{Key: "foo", Added: now.Add(time.Hour)},
+	}
+	assert.Equal(t, expected, reasons)
 }
 
-func (s *HealthSuite) TestLastChangedTime(t sweet.T) {
+func TestHealthLastChangedTime(t *testing.T) {
 	clock := glock.NewMockClock()
 	clock.SetCurrent(time.Now())
 
 	health := NewHealth(WithHealthClock(clock))
-	Expect(health.LastChange()).To(BeZero())
+	assert.Equal(t, time.Duration(0), health.LastChange())
 
 	// Changed
 	clock.Advance(time.Hour)
-	Expect(health.AddReason("foo")).To(BeNil())
-	Expect(health.HasReason("foo")).To(BeTrue())
+	require.Nil(t, health.AddReason("foo"))
+	assert.True(t, health.HasReason("foo"))
 
 	clock.Advance(time.Minute * 2)
-	Expect(health.LastChange()).To(Equal(time.Minute * 2))
+	assert.Equal(t, time.Minute*2, health.LastChange())
 
 	// No change
-	Expect(health.AddReason("bar")).To(BeNil())
-	Expect(health.HasReason("bar")).To(BeTrue())
+	require.Nil(t, health.AddReason("bar"))
+	assert.True(t, health.HasReason("bar"))
 	clock.Advance(time.Minute * 4)
-	Expect(health.LastChange()).To(Equal(time.Minute * 6))
+	assert.Equal(t, time.Minute*6, health.LastChange())
 
 	// No change
-	Expect(health.RemoveReason("foo")).To(BeNil())
-	Expect(health.HasReason("foo")).To(BeFalse())
+	require.Nil(t, health.RemoveReason("foo"))
+	assert.False(t, health.HasReason("foo"))
 	clock.Advance(time.Minute * 2)
-	Expect(health.LastChange()).To(Equal(time.Minute * 8))
+	assert.Equal(t, time.Minute*8, health.LastChange())
 
 	// Changed
-	Expect(health.RemoveReason("bar")).To(BeNil())
-	Expect(health.HasReason("bar")).To(BeFalse())
-	Expect(health.LastChange()).To(Equal(time.Minute * 0))
+	require.Nil(t, health.RemoveReason("bar"))
+	assert.False(t, health.HasReason("bar"))
+	assert.Equal(t, time.Minute*0, health.LastChange())
 }
 
-func (s *HealthSuite) TestAddReasonError(t sweet.T) {
+func TestHealthAddReasonError(t *testing.T) {
 	health := NewHealth()
 	health.AddReason("foo")
-	Expect(health.AddReason("foo")).To(MatchError("reason foo already registered"))
+	assert.EqualError(t, health.AddReason("foo"), "reason foo already registered")
 }
 
-func (s *HealthSuite) TestRemoveReasonError(t sweet.T) {
+func TestHealthRemoveReasonError(t *testing.T) {
 	health := NewHealth()
-	Expect(health.RemoveReason("foo")).To(MatchError("reason foo not registered"))
+	assert.EqualError(t, health.RemoveReason("foo"), "reason foo not registered")
 }
