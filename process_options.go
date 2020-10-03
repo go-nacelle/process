@@ -1,6 +1,10 @@
 package process
 
-import "time"
+import (
+	"time"
+
+	"github.com/go-nacelle/log"
+)
 
 // ProcessConfigFunc is a function used to append additional metadata
 // to an process during registration.
@@ -9,6 +13,12 @@ type ProcessConfigFunc func(*ProcessMeta)
 // WithProcessName assigns a name to an process, visible in logs.
 func WithProcessName(name string) ProcessConfigFunc {
 	return func(meta *ProcessMeta) { meta.name = name }
+}
+
+// WithProcessLogFields sets additional fields sent with every log message
+// from this process.
+func WithProcessLogFields(fields log.LogFields) ProcessConfigFunc {
+	return func(meta *ProcessMeta) { meta.logFields = fields }
 }
 
 // WithPriority assigns a priority to a process. A process with a lower-valued

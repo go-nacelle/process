@@ -3,6 +3,8 @@ package process
 import (
 	"sync"
 	"time"
+
+	"github.com/go-nacelle/log"
 )
 
 type (
@@ -11,6 +13,7 @@ type (
 	ProcessMeta struct {
 		Process
 		name            string
+		logFields       log.LogFields
 		priority        int
 		silentExit      bool
 		once            *sync.Once
@@ -36,6 +39,11 @@ func (m *ProcessMeta) Name() string {
 	}
 
 	return m.name
+}
+
+// Logields returns logging fields registered to this process.
+func (m *ProcessMeta) LogFields() log.LogFields {
+	return m.logFields
 }
 
 // InitTimeout returns the maximum timeout allowed for a call to

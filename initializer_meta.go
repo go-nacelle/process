@@ -1,6 +1,10 @@
 package process
 
-import "time"
+import (
+	"time"
+
+	"github.com/go-nacelle/log"
+)
 
 type (
 	// InitializerMeta wraps an initializer with some package
@@ -8,6 +12,7 @@ type (
 	InitializerMeta struct {
 		Initializer
 		name            string
+		logFields       log.LogFields
 		initTimeout     time.Duration
 		finalizeTimeout time.Duration
 	}
@@ -26,6 +31,11 @@ func (m *InitializerMeta) Name() string {
 	}
 
 	return m.name
+}
+
+// LogFields returns logging fields registered to this initializer.
+func (m *InitializerMeta) LogFields() log.LogFields {
+	return m.logFields
 }
 
 // InitTimeout returns the maximum timeout allowed for a call to
