@@ -42,6 +42,10 @@
 
 ## [v1.0.1] - 2019-06-07
 
+### Added
+
+- Added `HasReason` to `Health`. [#1](https://github.com/go-nacelle/process/pull/1)
+
 ## [v1.0.0] - 2019-06-17
 
 [Unreleased]: https://github.com/go-nacelle/process/compare/v1.1.0...HEAD
