@@ -1,5 +1,7 @@
 package process
 
+import "context"
+
 // Process is an interface that continually performs a behavior
 // during the life of a program. Generally, one process should
 // do a single thing. Multiple processes can be registered to
@@ -16,7 +18,7 @@ type Process interface {
 	// called (at which point a nil error should be returned).
 	// If this method is non-blocking, then the process should
 	// be registered with the WithSilentExit option.
-	Start() error
+	Start(ctx context.Context) error
 
 	// Stop informs the work being performed by the Start
 	// method to begin a graceful shutdown. This method is

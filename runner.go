@@ -1,6 +1,7 @@
 package process
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"sync"
@@ -339,7 +340,10 @@ func (r *runner) initWithTimeout(initializer namedInitializer, config config.Con
 func (r *runner) init(initializer namedInitializer, config config.Config) error {
 	r.logger.WithFields(initializer.LogFields()).Info("Initializing %s", initializer.Name())
 
-	if err := initializer.Init(config); err != nil {
+	// TODO - register
+	ctx := context.Background()
+
+	if err := initializer.Init(ctx, config); err != nil {
 		if _, ok := err.(errMetaSet); ok {
 			// Pass error sets up unchanged
 			return err
@@ -517,8 +521,11 @@ func (r *runner) startProcess(process *ProcessMeta, abandonSignal <-chan struct{
 	// and need to read from other sources for shutdown
 	// and timeout behavior.
 
+	// TODO - register
+	ctx := context.Background()
+
 	errChan := makeErrChan(func() error {
-		return process.Start()
+		return process.Start(ctx)
 	})
 
 	// Create a channel for the shutdown timeout. This

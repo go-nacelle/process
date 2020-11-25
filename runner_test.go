@@ -1,6 +1,7 @@
 package process
 
 import (
+	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -796,7 +797,7 @@ func newTaggedInitializer(init chan<- string, name string) *taggedInitializer {
 	}
 }
 
-func (i *taggedInitializer) Init(c config.Config) error {
+func (i *taggedInitializer) Init(ctx context.Context, c config.Config) error {
 	i.init <- i.name
 	return i.initErr
 }
@@ -850,12 +851,12 @@ func newTaggedProcess(init, start, stop chan<- string, name string) *taggedProce
 	}
 }
 
-func (p *taggedProcess) Init(c config.Config) error {
+func (p *taggedProcess) Init(ctx context.Context, c config.Config) error {
 	p.init <- p.name
 	return p.initErr
 }
 
-func (p *taggedProcess) Start() error {
+func (p *taggedProcess) Start(ctx context.Context) error {
 	p.start <- p.name
 
 	if p.startErr != nil {
@@ -883,9 +884,9 @@ func newBlockingProcess(sync chan struct{}) *blockingProcess {
 	}
 }
 
-func (p *blockingProcess) Init(c config.Config) error { return nil }
-func (p *blockingProcess) Start() error               { close(p.sync); <-p.wait; return nil }
-func (p *blockingProcess) Stop() error                { return nil }
+func (p *blockingProcess) Init(ctx context.Context, c config.Config) error { return nil }
+func (p *blockingProcess) Start(ctx context.Context) error                 { close(p.sync); <-p.wait; return nil }
+func (p *blockingProcess) Stop() error                                     { return nil }
 
 //
 //
@@ -901,7 +902,7 @@ type processWithService struct {
 func newInitializerWithService() *initializerWithService { return &initializerWithService{} }
 func newProcessWithService() *processWithService         { return &processWithService{} }
 
-func (i *initializerWithService) Init(c config.Config) error { return nil }
-func (p *processWithService) Init(c config.Config) error     { return nil }
-func (p *processWithService) Start() error                   { return nil }
-func (p *processWithService) Stop() error                    { return nil }
+func (i *initializerWithService) Init(ctx context.Context, c config.Config) error { return nil }
+func (p *processWithService) Init(ctx context.Context, c config.Config) error     { return nil }
+func (p *processWithService) Start(ctx context.Context) error                     { return nil }
+func (p *processWithService) Stop() error                                         { return nil }

@@ -1,6 +1,7 @@
 package process
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"time"
@@ -52,7 +53,7 @@ func (i *ParallelInitializer) RegisterInitializer(
 }
 
 // Init runs Init on all registered initializers concurrently.
-func (pi *ParallelInitializer) Init(config config.Config) error {
+func (pi *ParallelInitializer) Init(ctx context.Context, config config.Config) error {
 	for _, initializer := range pi.initializers {
 		if err := pi.inject(initializer); err != nil {
 			return errMetaSet{
@@ -62,7 +63,7 @@ func (pi *ParallelInitializer) Init(config config.Config) error {
 	}
 
 	errMetas := errMetaSet{}
-	initErrors := pi.initializeAll(config)
+	initErrors := pi.initializeAll(ctx, config)
 
 	for i, err := range initErrors {
 		if err != nil {
@@ -113,7 +114,7 @@ func (pi *ParallelInitializer) inject(initializer namedInjectable) error {
 	return nil
 }
 
-func (pi *ParallelInitializer) initializeAll(config config.Config) []error {
+func (pi *ParallelInitializer) initializeAll(ctx context.Context, config config.Config) []error {
 	errors := make([]error, len(pi.initializers))
 	mutex := sync.Mutex{}
 	wg := sync.WaitGroup{}
@@ -124,7 +125,7 @@ func (pi *ParallelInitializer) initializeAll(config config.Config) []error {
 		go func(i int) {
 			defer wg.Done()
 
-			if err := pi.initWithTimeout(pi.initializers[i], config); err != nil {
+			if err := pi.initWithTimeout(ctx, pi.initializers[i], config); err != nil {
 				mutex.Lock()
 				errors[i] = err
 				mutex.Unlock()
@@ -163,9 +164,9 @@ func (pi *ParallelInitializer) finalizeAll(initErrors []error) []error {
 	return errors
 }
 
-func (pi *ParallelInitializer) initWithTimeout(initializer namedInitializer, config config.Config) error {
+func (pi *ParallelInitializer) initWithTimeout(ctx context.Context, initializer namedInitializer, config config.Config) error {
 	errChan := makeErrChan(func() error {
-		return pi.init(initializer, config)
+		return pi.init(ctx, initializer, config)
 	})
 
 	select {
@@ -177,10 +178,10 @@ func (pi *ParallelInitializer) initWithTimeout(initializer namedInitializer, con
 	}
 }
 
-func (pi *ParallelInitializer) init(initializer namedInitializer, config config.Config) error {
+func (pi *ParallelInitializer) init(ctx context.Context, initializer namedInitializer, config config.Config) error {
 	pi.Logger.WithFields(initializer.LogFields()).Info("Initializing %s", initializer.Name())
 
-	if err := initializer.Init(config); err != nil {
+	if err := initializer.Init(ctx, config); err != nil {
 		return fmt.Errorf(
 			"failed to initialize %s (%s)",
 			initializer.Name(),
