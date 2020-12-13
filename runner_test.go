@@ -26,7 +26,7 @@ func TestRunnerRunOrder(t *testing.T) {
 	p1 := newTaggedProcess(init, start, stop, "d")
 	p2 := newTaggedProcess(init, start, stop, "e")
 	p3 := newTaggedProcess(init, start, stop, "f")
-	p4 := newTaggedProcess(init, start, stop, "g")
+	p4 := newTaggedProcessFinalizer(*newTaggedProcess(init, start, stop, "g"), finalize)
 	p5 := newTaggedProcess(init, start, stop, "h")
 
 	// Register things
@@ -78,7 +78,7 @@ func TestRunnerRunOrder(t *testing.T) {
 	eventually(t, stringChanReceivesUnordered(stop, "d", "e", "f", "g", "h"))
 
 	// Finalizers
-	eventually(t, stringChanReceivesUnordered(finalize, "a", "c"))
+	eventually(t, stringChanReceivesUnordered(finalize, "g", "a", "c"))
 
 	// Ensure unblocked
 	eventually(t, errorChanClosed(shutdownChan))
@@ -870,6 +870,24 @@ func (p *taggedProcess) Stop() error {
 	p.stop <- p.name
 	p.wait <- struct{}{}
 	return p.stopErr
+}
+
+type taggedProcessFinalizer struct {
+	taggedProcess
+	finalize    chan<- string
+	finalizeErr error
+}
+
+func newTaggedProcessFinalizer(taggedProcess taggedProcess, finalize chan<- string) *taggedProcessFinalizer {
+	return &taggedProcessFinalizer{
+		taggedProcess: taggedProcess,
+		finalize:      finalize,
+	}
+}
+
+func (i *taggedProcessFinalizer) Finalize() error {
+	i.finalize <- i.name
+	return i.finalizeErr
 }
 
 type blockingProcess struct {

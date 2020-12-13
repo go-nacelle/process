@@ -20,6 +20,7 @@ type ProcessMeta struct {
 	initTimeout     time.Duration
 	startTimeout    time.Duration
 	shutdownTimeout time.Duration
+	finalizeTimeout time.Duration
 }
 
 func newProcessMeta(process Process) *ProcessMeta {
@@ -39,7 +40,7 @@ func (m *ProcessMeta) Name() string {
 	return m.name
 }
 
-// Logields returns logging fields registered to this process.
+// LogFields returns logging fields registered to this process.
 func (m *ProcessMeta) LogFields() log.LogFields {
 	return m.logFields
 }
@@ -60,6 +61,12 @@ func (m *ProcessMeta) Stop() (err error) {
 	})
 
 	return
+}
+
+// FinalizeTimeout returns the maximum timeout allowed for a call to
+// the Finalize function. A zero value indicates no timeout.
+func (m *ProcessMeta) FinalizeTimeout() time.Duration {
+	return m.finalizeTimeout
 }
 
 // Wrapped returns the underlying process.

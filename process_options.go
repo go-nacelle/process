@@ -50,3 +50,8 @@ func WithProcessStartTimeout(timeout time.Duration) ProcessConfigFunc {
 func WithProcessShutdownTimeout(timeout time.Duration) ProcessConfigFunc {
 	return func(meta *ProcessMeta) { meta.shutdownTimeout = timeout }
 }
+
+// WithProcessFinalizerTimeout sets the time limit for the finalizer.
+func WithProcessFinalizerTimeout(timeout time.Duration) ProcessConfigFunc {
+	return func(meta *ProcessMeta) { meta.finalizeTimeout = timeout }
+}

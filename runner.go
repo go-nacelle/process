@@ -169,13 +169,23 @@ func (r *runner) runInitializers(config config.Config) bool {
 	return true
 }
 
-func (r *runner) runFinalizers() bool {
-	return r.unwindInitializers(r.processes.NumInitializers())
+func (r *runner) runFinalizers(beforeIndex int) bool {
+	r.logger.Info("Running finalizers")
+
+	success := true
+	for i := beforeIndex - 1; i >= 0; i-- {
+		for _, process := range r.processes.GetProcessesAtPriorityIndex(i) {
+			if err := r.finalizeWithTimeout(process); err != nil {
+				r.errChan <- errMeta{err: err, source: process}
+				success = false
+			}
+		}
+	}
+
+	return r.unwindInitializers(r.processes.NumInitializers()) && success
 }
 
 func (r *runner) unwindInitializers(beforeIndex int) bool {
-	r.logger.Info("Running finalizers")
-
 	success := true
 	initializers := r.processes.GetInitializers()
 
@@ -209,7 +219,8 @@ func (r *runner) runProcesses(config config.Config) bool {
 	// stop booting up processes adn simply wait for them to spin down.
 
 	success := true
-	for index := 0; index < r.processes.NumPriorities(); index++ {
+	index := 0
+	for ; index < r.processes.NumPriorities(); index++ {
 		if !r.initProcessesAtPriorityIndex(config, index) {
 			success = false
 			break
@@ -229,7 +240,7 @@ func (r *runner) runProcesses(config config.Config) bool {
 
 	go func() {
 		r.wg.Wait()
-		_ = r.runFinalizers()
+		_ = r.runFinalizers(index)
 		close(r.errChan)
 	}()
 
