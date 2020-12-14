@@ -1,6 +1,7 @@
 package process
 
 import (
+	"context"
 	"sync"
 	"time"
 
@@ -54,10 +55,10 @@ func (m *ProcessMeta) InitTimeout() time.Duration {
 // Stop wraps the underlying process's Stop method with a Once
 // value in order to guarantee that the Stop method will not
 // take effect multiple times.
-func (m *ProcessMeta) Stop() (err error) {
+func (m *ProcessMeta) Stop(ctx context.Context) (err error) {
 	m.once.Do(func() {
 		close(m.stopped)
-		err = m.Process.Stop()
+		err = m.Process.Stop(ctx)
 	})
 
 	return

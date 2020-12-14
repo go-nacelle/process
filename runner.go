@@ -1,6 +1,7 @@
 package process
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"sync"
@@ -23,7 +24,7 @@ type Runner interface {
 	// be sent on this channel (nil errors are ignored). This channel will
 	// close once all processes have exited (or, alternatively, when the
 	// shutdown timeout has elapsed).
-	Run(config.Config) <-chan error
+	Run(ctx context.Context, config config.Config) <-chan error
 
 	// Shutdown will begin a graceful exit of all processes. This method
 	// will block until the runner has exited (the channel from the Run
@@ -113,7 +114,7 @@ func NewRunner(
 	return r
 }
 
-func (r *runner) Run(config config.Config) <-chan error {
+func (r *runner) Run(ctx context.Context, config config.Config) <-chan error {
 	// Start watching things before running anything. This ensures that
 	// we start listening for shutdown requests and intercepted signals
 	// as soon as anything starts being initialized.
@@ -123,7 +124,7 @@ func (r *runner) Run(config config.Config) <-chan error {
 	// Run the initializers in sequence. If there were no errors, begin
 	// initializing and running processes in priority/registration order.
 
-	_ = r.runInitializers(config) && r.runProcesses(config)
+	_ = r.runInitializers(ctx, config) && r.runProcesses(ctx, config)
 	return r.outChan
 }
 
@@ -141,19 +142,19 @@ func (r *runner) Shutdown(timeout time.Duration) error {
 //
 // Running and Watching
 
-func (r *runner) runInitializers(config config.Config) bool {
+func (r *runner) runInitializers(ctx context.Context, config config.Config) bool {
 	r.logger.Info("Running initializers")
 
 	for i, initializer := range r.processes.GetInitializers() {
 		if err := r.inject(initializer); err != nil {
-			_ = r.unwindInitializers(i)
+			_ = r.unwindInitializers(ctx, i)
 			r.errChan <- errMeta{err: err, source: initializer}
 			close(r.errChan)
 			return false
 		}
 
-		if err := r.initWithTimeout(initializer, config); err != nil {
-			_ = r.unwindInitializers(i)
+		if err := r.initWithTimeout(ctx, initializer, config); err != nil {
+			_ = r.unwindInitializers(ctx, i)
 			// Parallel initializers may return multiple errors, so
 			// we return all of them here. This check if asymmetric
 			// as there is no equivalent for processes.
@@ -169,28 +170,28 @@ func (r *runner) runInitializers(config config.Config) bool {
 	return true
 }
 
-func (r *runner) runFinalizers(beforeIndex int) bool {
+func (r *runner) runFinalizers(ctx context.Context, beforeIndex int) bool {
 	r.logger.Info("Running finalizers")
 
 	success := true
 	for i := beforeIndex - 1; i >= 0; i-- {
 		for _, process := range r.processes.GetProcessesAtPriorityIndex(i) {
-			if err := r.finalizeWithTimeout(process); err != nil {
+			if err := r.finalizeWithTimeout(ctx, process); err != nil {
 				r.errChan <- errMeta{err: err, source: process}
 				success = false
 			}
 		}
 	}
 
-	return r.unwindInitializers(r.processes.NumInitializers()) && success
+	return r.unwindInitializers(ctx, r.processes.NumInitializers()) && success
 }
 
-func (r *runner) unwindInitializers(beforeIndex int) bool {
+func (r *runner) unwindInitializers(ctx context.Context, beforeIndex int) bool {
 	success := true
 	initializers := r.processes.GetInitializers()
 
 	for i := beforeIndex - 1; i >= 0; i-- {
-		if err := r.finalizeWithTimeout(initializers[i]); err != nil {
+		if err := r.finalizeWithTimeout(ctx, initializers[i]); err != nil {
 			// Parallel initializers may return multiple errors, so
 			// we return all of them here. This check if asymmetric
 			// as there is no equivalent for processes.
@@ -205,7 +206,7 @@ func (r *runner) unwindInitializers(beforeIndex int) bool {
 	return success
 }
 
-func (r *runner) runProcesses(config config.Config) bool {
+func (r *runner) runProcesses(ctx context.Context, config config.Config) bool {
 	r.logger.Info("Running processes")
 
 	if !r.injectProcesses() {
@@ -221,12 +222,12 @@ func (r *runner) runProcesses(config config.Config) bool {
 	success := true
 	index := 0
 	for ; index < r.processes.NumPriorities(); index++ {
-		if !r.initProcessesAtPriorityIndex(config, index) {
+		if !r.initProcessesAtPriorityIndex(ctx, config, index) {
 			success = false
 			break
 		}
 
-		if !r.startProcessesAtPriorityIndex(index) {
+		if !r.startProcessesAtPriorityIndex(ctx, index) {
 			success = false
 			break
 		}
@@ -240,7 +241,7 @@ func (r *runner) runProcesses(config config.Config) bool {
 
 	go func() {
 		r.wg.Wait()
-		_ = r.runFinalizers(index)
+		_ = r.runFinalizers(ctx, index)
 		close(r.errChan)
 	}()
 
@@ -302,11 +303,11 @@ func inject(injectable namedInjectable, services service.ServiceContainer, logge
 //
 // Initialization
 
-func (r *runner) initProcessesAtPriorityIndex(config config.Config, index int) bool {
+func (r *runner) initProcessesAtPriorityIndex(ctx context.Context, config config.Config, index int) bool {
 	r.logger.Info("Initializing processes at priority index %d", index)
 
 	for _, process := range r.processes.GetProcessesAtPriorityIndex(index) {
-		if err := r.initWithTimeout(process, config); err != nil {
+		if err := r.initWithTimeout(ctx, process, config); err != nil {
 			r.errChan <- errMeta{err: err, source: process}
 			return false
 		}
@@ -315,14 +316,14 @@ func (r *runner) initProcessesAtPriorityIndex(config config.Config, index int) b
 	return true
 }
 
-func (r *runner) initWithTimeout(initializer namedInitializer, config config.Config) error {
+func (r *runner) initWithTimeout(ctx context.Context, initializer namedInitializer, config config.Config) error {
 	// Run the initializer in a goroutine. We don't want to block
 	// on this in case we want to abandon reading from this channel
 	// (timeout or shutdown). This is only true for initializer
 	// methods (will not be true for process Start methods).
 
 	errChan := makeErrChan(func() error {
-		return r.init(initializer, config)
+		return r.init(ctx, initializer, config)
 	})
 
 	// Construct a timeout chan for the init (if timeout is set to
@@ -347,10 +348,10 @@ func (r *runner) initWithTimeout(initializer namedInitializer, config config.Con
 	}
 }
 
-func (r *runner) init(initializer namedInitializer, config config.Config) error {
+func (r *runner) init(ctx context.Context, initializer namedInitializer, config config.Config) error {
 	r.logger.WithFields(initializer.LogFields()).Info("Initializing %s", initializer.Name())
 
-	if err := initializer.Init(config); err != nil {
+	if err := initializer.Init(ctx, config); err != nil {
 		if _, ok := err.(errMetaSet); ok {
 			// Pass error sets up unchanged
 			return err
@@ -370,13 +371,13 @@ func (r *runner) init(initializer namedInitializer, config config.Config) error 
 //
 // Finalization
 
-func (r *runner) finalizeWithTimeout(initializer namedFinalizer) error {
+func (r *runner) finalizeWithTimeout(ctx context.Context, initializer namedFinalizer) error {
 	// Similar to initWithTimeout, run the finalizer in a goroutine
 	// and either return the error result or return an error value
 	// if the finalizer took too long.
 
 	errChan := makeErrChan(func() error {
-		return r.finalize(initializer)
+		return r.finalize(ctx, initializer)
 	})
 
 	finalizeTimeoutChan := r.makeTimeoutChan(initializer.FinalizeTimeout())
@@ -390,7 +391,7 @@ func (r *runner) finalizeWithTimeout(initializer namedFinalizer) error {
 	}
 }
 
-func (r *runner) finalize(initializer namedFinalizer) error {
+func (r *runner) finalize(ctx context.Context, initializer namedFinalizer) error {
 	// Finalizer is an optional interface on Initializer. Skip
 	// if this initializer doesn't conform.
 	finalizer, ok := initializer.Wrapped().(Finalizer)
@@ -400,7 +401,7 @@ func (r *runner) finalize(initializer namedFinalizer) error {
 
 	r.logger.WithFields(initializer.LogFields()).Info("Finalizing %s", initializer.Name())
 
-	if err := finalizer.Finalize(); err != nil {
+	if err := finalizer.Finalize(ctx); err != nil {
 		if _, ok := err.(errMetaSet); ok {
 			// Pass error sets up unchanged
 			return err
@@ -420,7 +421,7 @@ func (r *runner) finalize(initializer namedFinalizer) error {
 //
 // Process Starting
 
-func (r *runner) startProcessesAtPriorityIndex(index int) bool {
+func (r *runner) startProcessesAtPriorityIndex(ctx context.Context, index int) bool {
 	r.logger.Info("Starting processes at priority index %d", index)
 
 	// For each process group, we create a goroutine that will shutdown
@@ -434,7 +435,7 @@ func (r *runner) startProcessesAtPriorityIndex(index int) bool {
 	go func() {
 		defer r.wg.Done()
 		<-r.watcher.shutdownSignal
-		r.stopProcessesAtPriorityIndex(index)
+		r.stopProcessesAtPriorityIndex(ctx, index)
 	}()
 
 	// Create an abandon channel that closes to signal the routine invoking
@@ -451,7 +452,7 @@ func (r *runner) startProcessesAtPriorityIndex(index int) bool {
 
 		go func(p *ProcessMeta) {
 			defer r.wg.Done()
-			r.startProcess(p, abandonSignal)
+			r.startProcess(ctx, p, abandonSignal)
 		}(process)
 	}
 
@@ -520,7 +521,7 @@ func (r *runner) getHealthDescriptions() []string {
 	return descriptions
 }
 
-func (r *runner) startProcess(process *ProcessMeta, abandonSignal <-chan struct{}) {
+func (r *runner) startProcess(ctx context.Context, process *ProcessMeta, abandonSignal <-chan struct{}) {
 	r.logger.WithFields(process.LogFields()).Info("Starting %s", process.Name())
 
 	// Run the start method in a goroutine. We need to do
@@ -529,7 +530,7 @@ func (r *runner) startProcess(process *ProcessMeta, abandonSignal <-chan struct{
 	// and timeout behavior.
 
 	errChan := makeErrChan(func() error {
-		return process.Start()
+		return process.Start(ctx)
 	})
 
 	// Create a channel for the shutdown timeout. This
@@ -586,7 +587,7 @@ func (r *runner) startProcess(process *ProcessMeta, abandonSignal <-chan struct{
 //
 // Process Stopping
 
-func (r *runner) stopProcessesAtPriorityIndex(index int) {
+func (r *runner) stopProcessesAtPriorityIndex(ctx context.Context, index int) {
 	r.logger.Info("Stopping processes at priority index %d", index)
 
 	// Call stop on all processes at this priority index in parallel. We
@@ -600,17 +601,17 @@ func (r *runner) stopProcessesAtPriorityIndex(index int) {
 		go func(process *ProcessMeta) {
 			defer r.wg.Done()
 
-			if err := r.stop(process); err != nil {
+			if err := r.stop(ctx, process); err != nil {
 				r.errChan <- errMeta{err: err, source: process}
 			}
 		}(process)
 	}
 }
 
-func (r *runner) stop(process *ProcessMeta) error {
+func (r *runner) stop(ctx context.Context, process *ProcessMeta) error {
 	r.logger.WithFields(process.LogFields()).Info("Stopping %s", process.Name())
 
-	if err := process.Stop(); err != nil {
+	if err := process.Stop(ctx); err != nil {
 		return fmt.Errorf(
 			"%s returned error from stop (%s)",
 			process.Name(),

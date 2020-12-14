@@ -1,6 +1,7 @@
 package process
 
 import (
+	"context"
 	"fmt"
 	"syscall"
 	"testing"
@@ -130,7 +131,7 @@ func TestWatcherShutdownTimeout(t *testing.T) {
 //
 
 func makeNamedInitializer(name string) namedInitializer {
-	initializer := InitializerFunc(func(config.Config) error {
+	initializer := InitializerFunc(func(ctx context.Context, c config.Config) error {
 		return nil
 	})
 
