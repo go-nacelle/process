@@ -531,7 +531,7 @@ func (r *runner) startProcess(ctx context.Context, process *ProcessMeta, abandon
 
 	errChan := makeErrChan(func() error {
 		ctx, cancelCtx := context.WithCancel(ctx)
-		process.cancelCtx = cancelCtx
+		process.setCancelCtx(cancelCtx)
 		return process.Start(ctx)
 	})
 

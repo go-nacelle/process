@@ -11,6 +11,7 @@ import (
 // ProcessMeta wraps a process with some package private
 // fields.
 type ProcessMeta struct {
+	sync.RWMutex
 	Process
 	name            string
 	logFields       log.LogFields
@@ -58,14 +59,32 @@ func (m *ProcessMeta) InitTimeout() time.Duration {
 // take effect multiple times.
 func (m *ProcessMeta) Stop(ctx context.Context) (err error) {
 	m.once.Do(func() {
+		m.RLock()
 		close(m.stopped)
+		cancelCtx := m.cancelCtx
+		m.RUnlock()
+
 		err = m.Process.Stop(ctx)
-		if m.cancelCtx != nil {
-			m.cancelCtx()
+
+		if cancelCtx != nil {
+			cancelCtx()
 		}
 	})
 
 	return
+}
+
+func (m *ProcessMeta) setCancelCtx(cancelCtx func()) {
+	m.Lock()
+	defer m.Unlock()
+
+	select {
+	case <-m.stopped:
+		cancelCtx()
+		return
+	default:
+		m.cancelCtx = cancelCtx
+	}
 }
 
 // FinalizeTimeout returns the maximum timeout allowed for a call to
