@@ -3,6 +3,7 @@
 package mocks
 
 import (
+	"context"
 	config "github.com/go-nacelle/config"
 	process "github.com/go-nacelle/process"
 	"sync"
@@ -21,7 +22,7 @@ type MockInitializer struct {
 func NewMockInitializer() *MockInitializer {
 	return &MockInitializer{
 		InitFunc: &InitializerInitFunc{
-			defaultHook: func(config.Config) error {
+			defaultHook: func(context.Context, config.Config) error {
 				return nil
 			},
 		},
@@ -42,23 +43,23 @@ func NewMockInitializerFrom(i process.Initializer) *MockInitializer {
 // InitializerInitFunc describes the behavior when the Init method of the
 // parent MockInitializer instance is invoked.
 type InitializerInitFunc struct {
-	defaultHook func(config.Config) error
-	hooks       []func(config.Config) error
+	defaultHook func(context.Context, config.Config) error
+	hooks       []func(context.Context, config.Config) error
 	history     []InitializerInitFuncCall
 	mutex       sync.Mutex
 }
 
 // Init delegates to the next hook function in the queue and stores the
 // parameter and result values of this invocation.
-func (m *MockInitializer) Init(v0 config.Config) error {
-	r0 := m.InitFunc.nextHook()(v0)
-	m.InitFunc.appendCall(InitializerInitFuncCall{v0, r0})
+func (m *MockInitializer) Init(v0 context.Context, v1 config.Config) error {
+	r0 := m.InitFunc.nextHook()(v0, v1)
+	m.InitFunc.appendCall(InitializerInitFuncCall{v0, v1, r0})
 	return r0
 }
 
 // SetDefaultHook sets function that is called when the Init method of the
 // parent MockInitializer instance is invoked and the hook queue is empty.
-func (f *InitializerInitFunc) SetDefaultHook(hook func(config.Config) error) {
+func (f *InitializerInitFunc) SetDefaultHook(hook func(context.Context, config.Config) error) {
 	f.defaultHook = hook
 }
 
@@ -66,7 +67,7 @@ func (f *InitializerInitFunc) SetDefaultHook(hook func(config.Config) error) {
 // Init method of the parent MockInitializer instance invokes the hook at
 // the front of the queue and discards it. After the queue is empty, the
 // default hook function is invoked for any future action.
-func (f *InitializerInitFunc) PushHook(hook func(config.Config) error) {
+func (f *InitializerInitFunc) PushHook(hook func(context.Context, config.Config) error) {
 	f.mutex.Lock()
 	f.hooks = append(f.hooks, hook)
 	f.mutex.Unlock()
@@ -75,7 +76,7 @@ func (f *InitializerInitFunc) PushHook(hook func(config.Config) error) {
 // SetDefaultReturn calls SetDefaultDefaultHook with a function that returns
 // the given values.
 func (f *InitializerInitFunc) SetDefaultReturn(r0 error) {
-	f.SetDefaultHook(func(config.Config) error {
+	f.SetDefaultHook(func(context.Context, config.Config) error {
 		return r0
 	})
 }
@@ -83,12 +84,12 @@ func (f *InitializerInitFunc) SetDefaultReturn(r0 error) {
 // PushReturn calls PushDefaultHook with a function that returns the given
 // values.
 func (f *InitializerInitFunc) PushReturn(r0 error) {
-	f.PushHook(func(config.Config) error {
+	f.PushHook(func(context.Context, config.Config) error {
 		return r0
 	})
 }
 
-func (f *InitializerInitFunc) nextHook() func(config.Config) error {
+func (f *InitializerInitFunc) nextHook() func(context.Context, config.Config) error {
 	f.mutex.Lock()
 	defer f.mutex.Unlock()
 
@@ -123,7 +124,10 @@ func (f *InitializerInitFunc) History() []InitializerInitFuncCall {
 type InitializerInitFuncCall struct {
 	// Arg0 is the value of the 1st argument passed to this method
 	// invocation.
-	Arg0 config.Config
+	Arg0 context.Context
+	// Arg1 is the value of the 2nd argument passed to this method
+	// invocation.
+	Arg1 config.Config
 	// Result0 is the value of the 1st result returned from this method
 	// invocation.
 	Result0 error
@@ -132,7 +136,7 @@ type InitializerInitFuncCall struct {
 // Args returns an interface slice containing the arguments of this
 // invocation.
 func (c InitializerInitFuncCall) Args() []interface{} {
-	return []interface{}{c.Arg0}
+	return []interface{}{c.Arg0, c.Arg1}
 }
 
 // Results returns an interface slice containing the results of this

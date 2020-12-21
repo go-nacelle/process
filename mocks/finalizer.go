@@ -3,6 +3,7 @@
 package mocks
 
 import (
+	"context"
 	process "github.com/go-nacelle/process"
 	"sync"
 )
@@ -20,7 +21,7 @@ type MockFinalizer struct {
 func NewMockFinalizer() *MockFinalizer {
 	return &MockFinalizer{
 		FinalizeFunc: &FinalizerFinalizeFunc{
-			defaultHook: func() error {
+			defaultHook: func(context.Context) error {
 				return nil
 			},
 		},
@@ -40,23 +41,23 @@ func NewMockFinalizerFrom(i process.Finalizer) *MockFinalizer {
 // FinalizerFinalizeFunc describes the behavior when the Finalize method of
 // the parent MockFinalizer instance is invoked.
 type FinalizerFinalizeFunc struct {
-	defaultHook func() error
-	hooks       []func() error
+	defaultHook func(context.Context) error
+	hooks       []func(context.Context) error
 	history     []FinalizerFinalizeFuncCall
 	mutex       sync.Mutex
 }
 
 // Finalize delegates to the next hook function in the queue and stores the
 // parameter and result values of this invocation.
-func (m *MockFinalizer) Finalize() error {
-	r0 := m.FinalizeFunc.nextHook()()
-	m.FinalizeFunc.appendCall(FinalizerFinalizeFuncCall{r0})
+func (m *MockFinalizer) Finalize(v0 context.Context) error {
+	r0 := m.FinalizeFunc.nextHook()(v0)
+	m.FinalizeFunc.appendCall(FinalizerFinalizeFuncCall{v0, r0})
 	return r0
 }
 
 // SetDefaultHook sets function that is called when the Finalize method of
 // the parent MockFinalizer instance is invoked and the hook queue is empty.
-func (f *FinalizerFinalizeFunc) SetDefaultHook(hook func() error) {
+func (f *FinalizerFinalizeFunc) SetDefaultHook(hook func(context.Context) error) {
 	f.defaultHook = hook
 }
 
@@ -64,7 +65,7 @@ func (f *FinalizerFinalizeFunc) SetDefaultHook(hook func() error) {
 // Finalize method of the parent MockFinalizer instance invokes the hook at
 // the front of the queue and discards it. After the queue is empty, the
 // default hook function is invoked for any future action.
-func (f *FinalizerFinalizeFunc) PushHook(hook func() error) {
+func (f *FinalizerFinalizeFunc) PushHook(hook func(context.Context) error) {
 	f.mutex.Lock()
 	f.hooks = append(f.hooks, hook)
 	f.mutex.Unlock()
@@ -73,7 +74,7 @@ func (f *FinalizerFinalizeFunc) PushHook(hook func() error) {
 // SetDefaultReturn calls SetDefaultDefaultHook with a function that returns
 // the given values.
 func (f *FinalizerFinalizeFunc) SetDefaultReturn(r0 error) {
-	f.SetDefaultHook(func() error {
+	f.SetDefaultHook(func(context.Context) error {
 		return r0
 	})
 }
@@ -81,12 +82,12 @@ func (f *FinalizerFinalizeFunc) SetDefaultReturn(r0 error) {
 // PushReturn calls PushDefaultHook with a function that returns the given
 // values.
 func (f *FinalizerFinalizeFunc) PushReturn(r0 error) {
-	f.PushHook(func() error {
+	f.PushHook(func(context.Context) error {
 		return r0
 	})
 }
 
-func (f *FinalizerFinalizeFunc) nextHook() func() error {
+func (f *FinalizerFinalizeFunc) nextHook() func(context.Context) error {
 	f.mutex.Lock()
 	defer f.mutex.Unlock()
 
@@ -119,6 +120,9 @@ func (f *FinalizerFinalizeFunc) History() []FinalizerFinalizeFuncCall {
 // FinalizerFinalizeFuncCall is an object that describes an invocation of
 // method Finalize on an instance of MockFinalizer.
 type FinalizerFinalizeFuncCall struct {
+	// Arg0 is the value of the 1st argument passed to this method
+	// invocation.
+	Arg0 context.Context
 	// Result0 is the value of the 1st result returned from this method
 	// invocation.
 	Result0 error
@@ -127,7 +131,7 @@ type FinalizerFinalizeFuncCall struct {
 // Args returns an interface slice containing the arguments of this
 // invocation.
 func (c FinalizerFinalizeFuncCall) Args() []interface{} {
-	return []interface{}{}
+	return []interface{}{c.Arg0}
 }
 
 // Results returns an interface slice containing the results of this
