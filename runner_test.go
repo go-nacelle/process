@@ -781,6 +781,45 @@ func TestRunnerProcessStopError(t *testing.T) {
 	eventually(t, errorChanClosed(errChan))
 }
 
+func TestContext(t *testing.T) {
+	services := service.NewServiceContainer()
+	processes := NewProcessContainer()
+	health := NewHealth()
+	runner := NewRunner(processes, services, health)
+
+	p1 := newContextProcess()
+	p2 := newContextProcess()
+	p3 := newContextProcess()
+
+	// Register things
+	processes.RegisterProcess(p1, WithPriority(1))
+	processes.RegisterProcess(p2, WithPriority(2))
+	processes.RegisterProcess(p3, WithPriority(3))
+
+	errChan := make(chan error)
+	shutdownChan := make(chan error)
+	ctx, cancelCtx := context.WithCancel(context.Background())
+
+	go func() {
+		defer close(errChan)
+
+		for err := range runner.Run(ctx, nil) {
+			errChan <- err
+		}
+	}()
+
+	cancelCtx()
+
+	go func() {
+		defer close(shutdownChan)
+		shutdownChan <- runner.Shutdown(time.Minute)
+	}()
+
+	// Ensure unblocked
+	eventually(t, errorChanClosed(shutdownChan))
+	eventually(t, errorChanClosed(errChan))
+}
+
 //
 //
 
@@ -924,3 +963,17 @@ func (i *initializerWithService) Init(ctx context.Context, c config.Config) erro
 func (p *processWithService) Init(ctx context.Context, c config.Config) error     { return nil }
 func (p *processWithService) Start(ctx context.Context) error                     { return nil }
 func (p *processWithService) Stop(ctx context.Context) error                      { return nil }
+
+//
+//
+
+type contextProcess struct {
+}
+
+func newContextProcess() *contextProcess {
+	return &contextProcess{}
+}
+
+func (p *contextProcess) Init(ctx context.Context, c config.Config) error { return nil }
+func (p *contextProcess) Start(ctx context.Context) error                 { <-ctx.Done(); return nil }
+func (p *contextProcess) Stop(ctx context.Context) error                  { return nil }

@@ -18,6 +18,7 @@ type ProcessMeta struct {
 	silentExit      bool
 	once            *sync.Once
 	stopped         chan struct{}
+	cancelCtx       func()
 	initTimeout     time.Duration
 	startTimeout    time.Duration
 	shutdownTimeout time.Duration
@@ -59,6 +60,9 @@ func (m *ProcessMeta) Stop(ctx context.Context) (err error) {
 	m.once.Do(func() {
 		close(m.stopped)
 		err = m.Process.Stop(ctx)
+		if m.cancelCtx != nil {
+			m.cancelCtx()
+		}
 	})
 
 	return

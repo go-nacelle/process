@@ -530,6 +530,8 @@ func (r *runner) startProcess(ctx context.Context, process *ProcessMeta, abandon
 	// and timeout behavior.
 
 	errChan := makeErrChan(func() error {
+		ctx, cancelCtx := context.WithCancel(ctx)
+		process.cancelCtx = cancelCtx
 		return process.Start(ctx)
 	})
 
