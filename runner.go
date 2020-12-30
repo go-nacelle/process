@@ -3,6 +3,7 @@ package process
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -519,6 +520,7 @@ func (r *runner) getHealthDescriptions() []string {
 		descriptions = append(descriptions, fmt.Sprintf("%s", reason.Key))
 	}
 
+	sort.Strings(descriptions)
 	return descriptions
 }
 
