@@ -153,7 +153,7 @@ func (r *runner) runInitializers(ctx context.Context, config config.Config) bool
 			return false
 		}
 
-		if err := r.initWithTimeout(ctx, initializer, config); err != nil {
+		if err := r.initWithTimeout(initializer.FilterContext(ctx), initializer, config); err != nil {
 			_ = r.unwindInitializers(ctx, i)
 			// Parallel initializers may return multiple errors, so
 			// we return all of them here. This check if asymmetric
@@ -176,7 +176,8 @@ func (r *runner) runFinalizers(ctx context.Context, beforeIndex int) bool {
 	success := true
 	for i := beforeIndex - 1; i >= 0; i-- {
 		for _, process := range r.processes.GetProcessesAtPriorityIndex(i) {
-			if err := r.finalizeWithTimeout(ctx, process); err != nil {
+
+			if err := r.finalizeWithTimeout(process.FilterContext(ctx), process); err != nil {
 				r.errChan <- errMeta{err: err, source: process}
 				success = false
 			}
@@ -191,7 +192,7 @@ func (r *runner) unwindInitializers(ctx context.Context, beforeIndex int) bool {
 	initializers := r.processes.GetInitializers()
 
 	for i := beforeIndex - 1; i >= 0; i-- {
-		if err := r.finalizeWithTimeout(ctx, initializers[i]); err != nil {
+		if err := r.finalizeWithTimeout(initializers[i].FilterContext(ctx), initializers[i]); err != nil {
 			// Parallel initializers may return multiple errors, so
 			// we return all of them here. This check if asymmetric
 			// as there is no equivalent for processes.
@@ -307,7 +308,7 @@ func (r *runner) initProcessesAtPriorityIndex(ctx context.Context, config config
 	r.logger.Info("Initializing processes at priority index %d", index)
 
 	for _, process := range r.processes.GetProcessesAtPriorityIndex(index) {
-		if err := r.initWithTimeout(ctx, process, config); err != nil {
+		if err := r.initWithTimeout(process.FilterContext(ctx), process, config); err != nil {
 			r.errChan <- errMeta{err: err, source: process}
 			return false
 		}
@@ -530,7 +531,7 @@ func (r *runner) startProcess(ctx context.Context, process *ProcessMeta, abandon
 	// and timeout behavior.
 
 	errChan := makeErrChan(func() error {
-		ctx, cancelCtx := context.WithCancel(ctx)
+		ctx, cancelCtx := context.WithCancel(process.FilterContext(ctx))
 		process.setCancelCtx(cancelCtx)
 		return process.Start(ctx)
 	})
@@ -603,7 +604,7 @@ func (r *runner) stopProcessesAtPriorityIndex(ctx context.Context, index int) {
 		go func(process *ProcessMeta) {
 			defer r.wg.Done()
 
-			if err := r.stop(ctx, process); err != nil {
+			if err := r.stop(process.FilterContext(ctx), process); err != nil {
 				r.errChan <- errMeta{err: err, source: process}
 			}
 		}(process)

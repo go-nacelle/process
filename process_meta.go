@@ -13,6 +13,7 @@ import (
 type ProcessMeta struct {
 	sync.RWMutex
 	Process
+	contextFilter   func(ctx context.Context) context.Context
 	name            string
 	logFields       log.LogFields
 	priority        int
@@ -32,6 +33,14 @@ func newProcessMeta(process Process) *ProcessMeta {
 		once:    &sync.Once{},
 		stopped: make(chan struct{}),
 	}
+}
+
+func (m *ProcessMeta) FilterContext(ctx context.Context) context.Context {
+	if m.contextFilter == nil {
+		return ctx
+	}
+
+	return m.contextFilter(ctx)
 }
 
 // Name returns the name of the process.
