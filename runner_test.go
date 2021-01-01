@@ -1,6 +1,7 @@
 package process
 
 import (
+	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -26,7 +27,7 @@ func TestRunnerRunOrder(t *testing.T) {
 	p1 := newTaggedProcess(init, start, stop, "d")
 	p2 := newTaggedProcess(init, start, stop, "e")
 	p3 := newTaggedProcess(init, start, stop, "f")
-	p4 := newTaggedProcess(init, start, stop, "g")
+	p4 := newTaggedProcessFinalizer(*newTaggedProcess(init, start, stop, "g"), finalize)
 	p5 := newTaggedProcess(init, start, stop, "h")
 
 	// Register things
@@ -45,7 +46,7 @@ func TestRunnerRunOrder(t *testing.T) {
 	go func() {
 		defer close(errChan)
 
-		for err := range runner.Run(nil) {
+		for err := range runner.Run(context.Background(), nil) {
 			errChan <- err
 		}
 	}()
@@ -78,7 +79,7 @@ func TestRunnerRunOrder(t *testing.T) {
 	eventually(t, stringChanReceivesUnordered(stop, "d", "e", "f", "g", "h"))
 
 	// Finalizers
-	eventually(t, stringChanReceivesUnordered(finalize, "a", "c"))
+	eventually(t, stringChanReceivesUnordered(finalize, "g", "a", "c"))
 
 	// Ensure unblocked
 	eventually(t, errorChanClosed(shutdownChan))
@@ -105,7 +106,7 @@ func TestRunnerEarlyExit(t *testing.T) {
 	go func() {
 		defer close(errChan)
 
-		for err := range runner.Run(nil) {
+		for err := range runner.Run(context.Background(), nil) {
 			errChan <- err
 		}
 	}()
@@ -113,7 +114,7 @@ func TestRunnerEarlyExit(t *testing.T) {
 	eventually(t, stringChanReceivesOrdered(init, "a", "b"))
 	eventually(t, stringChanReceivesN(start, 2))
 
-	go p2.Stop()
+	go p2.Stop(context.Background())
 
 	// Stopping one process should shutdown the rest
 	eventually(t, stringChanReceivesUnordered(stop, "b"))
@@ -137,12 +138,12 @@ func TestRunnerSilentExit(t *testing.T) {
 	processes.RegisterProcess(p1)
 	processes.RegisterProcess(p2, WithSilentExit())
 
-	go runner.Run(nil)
+	go runner.Run(context.Background(), nil)
 
 	eventually(t, stringChanReceivesOrdered(init, "a", "b"))
 	eventually(t, stringChanReceivesN(start, 2))
 
-	go p2.Stop()
+	go p2.Stop(context.Background())
 
 	eventually(t, stringChanReceivesUnordered(stop, "b"))
 }
@@ -164,7 +165,7 @@ func TestRunnerShutdownTimeout(t *testing.T) {
 	go func() {
 		defer close(errChan)
 
-		for err := range runner.Run(nil) {
+		for err := range runner.Run(context.Background(), nil) {
 			errChan <- err
 		}
 	}()
@@ -219,7 +220,7 @@ func TestRunnerProcessStartTimeout(t *testing.T) {
 	go func() {
 		defer close(errChan)
 
-		for err := range runner.Run(nil) {
+		for err := range runner.Run(context.Background(), nil) {
 			errChan <- err
 		}
 	}()
@@ -262,7 +263,7 @@ func TestRunnerProcessShutdownTimeout(t *testing.T) {
 	go func() {
 		defer close(errChan)
 
-		for err := range runner.Run(nil) {
+		for err := range runner.Run(context.Background(), nil) {
 			errChan <- err
 		}
 	}()
@@ -314,7 +315,7 @@ func TestRunnerInitializerInjectionError(t *testing.T) {
 	go func() {
 		defer close(errChan)
 
-		for err := range runner.Run(nil) {
+		for err := range runner.Run(context.Background(), nil) {
 			errChan <- err
 		}
 	}()
@@ -362,7 +363,7 @@ func TestRunnerProcessInjectionError(t *testing.T) {
 	go func() {
 		defer close(errChan)
 
-		for err := range runner.Run(nil) {
+		for err := range runner.Run(context.Background(), nil) {
 			errChan <- err
 		}
 	}()
@@ -401,7 +402,7 @@ func TestRunnerInitializerInitTimeout(t *testing.T) {
 	go func() {
 		defer close(errChan)
 
-		for err := range runner.Run(nil) {
+		for err := range runner.Run(context.Background(), nil) {
 			errChan <- err
 		}
 	}()
@@ -439,7 +440,7 @@ func TestRunnerFinalizerFinalizeTimeout(t *testing.T) {
 	go func() {
 		defer close(errChan)
 
-		for err := range runner.Run(nil) {
+		for err := range runner.Run(context.Background(), nil) {
 			errChan <- err
 		}
 	}()
@@ -486,7 +487,7 @@ func TestRunnerFinalizerError(t *testing.T) {
 	go func() {
 		defer close(errChan)
 
-		for err := range runner.Run(nil) {
+		for err := range runner.Run(context.Background(), nil) {
 			errChan <- err
 		}
 	}()
@@ -527,7 +528,7 @@ func TestRunnerProcessInitTimeout(t *testing.T) {
 	go func() {
 		defer close(errChan)
 
-		for err := range runner.Run(nil) {
+		for err := range runner.Run(context.Background(), nil) {
 			errChan <- err
 		}
 	}()
@@ -568,7 +569,7 @@ func TestRunnerInitializerError(t *testing.T) {
 	go func() {
 		defer close(errChan)
 
-		for err := range runner.Run(nil) {
+		for err := range runner.Run(context.Background(), nil) {
 			errChan <- err
 		}
 	}()
@@ -621,7 +622,7 @@ func TestRunnerProcessInitError(t *testing.T) {
 	go func() {
 		defer close(errChan)
 
-		for err := range runner.Run(nil) {
+		for err := range runner.Run(context.Background(), nil) {
 			errChan <- err
 		}
 	}()
@@ -684,7 +685,7 @@ func TestRunnerProcessStartError(t *testing.T) {
 	go func() {
 		defer close(errChan)
 
-		for err := range runner.Run(nil) {
+		for err := range runner.Run(context.Background(), nil) {
 			errChan <- err
 		}
 	}()
@@ -754,7 +755,7 @@ func TestRunnerProcessStopError(t *testing.T) {
 	go func() {
 		defer close(errChan)
 
-		for err := range runner.Run(nil) {
+		for err := range runner.Run(context.Background(), nil) {
 			errChan <- err
 		}
 	}()
@@ -780,6 +781,45 @@ func TestRunnerProcessStopError(t *testing.T) {
 	eventually(t, errorChanClosed(errChan))
 }
 
+func TestContext(t *testing.T) {
+	services := service.NewServiceContainer()
+	processes := NewProcessContainer()
+	health := NewHealth()
+	runner := NewRunner(processes, services, health)
+
+	p1 := newContextProcess()
+	p2 := newContextProcess()
+	p3 := newContextProcess()
+
+	// Register things
+	processes.RegisterProcess(p1, WithPriority(1))
+	processes.RegisterProcess(p2, WithPriority(2))
+	processes.RegisterProcess(p3, WithPriority(3))
+
+	errChan := make(chan error)
+	shutdownChan := make(chan error)
+	ctx, cancelCtx := context.WithCancel(context.Background())
+
+	go func() {
+		defer close(errChan)
+
+		for err := range runner.Run(ctx, nil) {
+			errChan <- err
+		}
+	}()
+
+	cancelCtx()
+
+	go func() {
+		defer close(shutdownChan)
+		shutdownChan <- runner.Shutdown(time.Minute)
+	}()
+
+	// Ensure unblocked
+	eventually(t, errorChanClosed(shutdownChan))
+	eventually(t, errorChanClosed(errChan))
+}
+
 //
 //
 
@@ -796,7 +836,7 @@ func newTaggedInitializer(init chan<- string, name string) *taggedInitializer {
 	}
 }
 
-func (i *taggedInitializer) Init(c config.Config) error {
+func (i *taggedInitializer) Init(ctx context.Context, c config.Config) error {
 	i.init <- i.name
 	return i.initErr
 }
@@ -820,7 +860,7 @@ func newTaggedFinalizer(init chan<- string, finalize chan<- string, name string)
 	}
 }
 
-func (i *taggedFinalizer) Finalize() error {
+func (i *taggedFinalizer) Finalize(ctx context.Context) error {
 	i.finalize <- i.name
 	return i.finalizeErr
 }
@@ -850,12 +890,12 @@ func newTaggedProcess(init, start, stop chan<- string, name string) *taggedProce
 	}
 }
 
-func (p *taggedProcess) Init(c config.Config) error {
+func (p *taggedProcess) Init(ctx context.Context, c config.Config) error {
 	p.init <- p.name
 	return p.initErr
 }
 
-func (p *taggedProcess) Start() error {
+func (p *taggedProcess) Start(ctx context.Context) error {
 	p.start <- p.name
 
 	if p.startErr != nil {
@@ -866,10 +906,28 @@ func (p *taggedProcess) Start() error {
 	return nil
 }
 
-func (p *taggedProcess) Stop() error {
+func (p *taggedProcess) Stop(ctx context.Context) error {
 	p.stop <- p.name
 	p.wait <- struct{}{}
 	return p.stopErr
+}
+
+type taggedProcessFinalizer struct {
+	taggedProcess
+	finalize    chan<- string
+	finalizeErr error
+}
+
+func newTaggedProcessFinalizer(taggedProcess taggedProcess, finalize chan<- string) *taggedProcessFinalizer {
+	return &taggedProcessFinalizer{
+		taggedProcess: taggedProcess,
+		finalize:      finalize,
+	}
+}
+
+func (i *taggedProcessFinalizer) Finalize(ctx context.Context) error {
+	i.finalize <- i.name
+	return i.finalizeErr
 }
 
 type blockingProcess struct {
@@ -883,9 +941,9 @@ func newBlockingProcess(sync chan struct{}) *blockingProcess {
 	}
 }
 
-func (p *blockingProcess) Init(c config.Config) error { return nil }
-func (p *blockingProcess) Start() error               { close(p.sync); <-p.wait; return nil }
-func (p *blockingProcess) Stop() error                { return nil }
+func (p *blockingProcess) Init(ctx context.Context, c config.Config) error { return nil }
+func (p *blockingProcess) Start(ctx context.Context) error                 { close(p.sync); <-p.wait; return nil }
+func (p *blockingProcess) Stop(ctx context.Context) error                  { return nil }
 
 //
 //
@@ -901,7 +959,21 @@ type processWithService struct {
 func newInitializerWithService() *initializerWithService { return &initializerWithService{} }
 func newProcessWithService() *processWithService         { return &processWithService{} }
 
-func (i *initializerWithService) Init(c config.Config) error { return nil }
-func (p *processWithService) Init(c config.Config) error     { return nil }
-func (p *processWithService) Start() error                   { return nil }
-func (p *processWithService) Stop() error                    { return nil }
+func (i *initializerWithService) Init(ctx context.Context, c config.Config) error { return nil }
+func (p *processWithService) Init(ctx context.Context, c config.Config) error     { return nil }
+func (p *processWithService) Start(ctx context.Context) error                     { return nil }
+func (p *processWithService) Stop(ctx context.Context) error                      { return nil }
+
+//
+//
+
+type contextProcess struct {
+}
+
+func newContextProcess() *contextProcess {
+	return &contextProcess{}
+}
+
+func (p *contextProcess) Init(ctx context.Context, c config.Config) error { return nil }
+func (p *contextProcess) Start(ctx context.Context) error                 { <-ctx.Done(); return nil }
+func (p *contextProcess) Stop(ctx context.Context) error                  { return nil }

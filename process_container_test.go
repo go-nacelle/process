@@ -1,6 +1,7 @@
 package process
 
 import (
+	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -11,9 +12,9 @@ import (
 )
 
 func TestProcessContainerInitializers(t *testing.T) {
-	i1 := InitializerFunc(func(config.Config) error { return fmt.Errorf("a") })
-	i2 := InitializerFunc(func(config.Config) error { return fmt.Errorf("b") })
-	i3 := InitializerFunc(func(config.Config) error { return fmt.Errorf("c") })
+	i1 := InitializerFunc(func(ctx context.Context, c config.Config) error { return fmt.Errorf("a") })
+	i2 := InitializerFunc(func(ctx context.Context, c config.Config) error { return fmt.Errorf("b") })
+	i3 := InitializerFunc(func(ctx context.Context, c config.Config) error { return fmt.Errorf("c") })
 
 	c := NewProcessContainer()
 	c.RegisterInitializer(i1)
@@ -34,9 +35,9 @@ func TestProcessContainerInitializers(t *testing.T) {
 	assert.Equal(t, time.Minute*2, initializers[2].InitTimeout())
 
 	// Test inner function
-	assert.EqualError(t, initializers[0].Initializer.Init(nil), "a")
-	assert.EqualError(t, initializers[1].Initializer.Init(nil), "b")
-	assert.EqualError(t, initializers[2].Initializer.Init(nil), "c")
+	assert.EqualError(t, initializers[0].Initializer.Init(context.Background(), nil), "a")
+	assert.EqualError(t, initializers[1].Initializer.Init(context.Background(), nil), "b")
+	assert.EqualError(t, initializers[2].Initializer.Init(context.Background(), nil), "c")
 }
 
 func TestProcessContainerProcesses(t *testing.T) {
@@ -76,12 +77,12 @@ func TestProcessContainerProcesses(t *testing.T) {
 	assert.Equal(t, "b", p4[0].Name())
 
 	// Test inner function
-	assert.EqualError(t, p1[0].Process.Init(nil), "a")
-	assert.EqualError(t, p1[1].Process.Init(nil), "f")
-	assert.EqualError(t, p2[0].Process.Init(nil), "c")
-	assert.EqualError(t, p2[1].Process.Init(nil), "e")
-	assert.EqualError(t, p3[0].Process.Init(nil), "d")
-	assert.EqualError(t, p4[0].Process.Init(nil), "b")
+	assert.EqualError(t, p1[0].Process.Init(context.Background(), nil), "a")
+	assert.EqualError(t, p1[1].Process.Init(context.Background(), nil), "f")
+	assert.EqualError(t, p2[0].Process.Init(context.Background(), nil), "c")
+	assert.EqualError(t, p2[1].Process.Init(context.Background(), nil), "e")
+	assert.EqualError(t, p3[0].Process.Init(context.Background(), nil), "d")
+	assert.EqualError(t, p4[0].Process.Init(context.Background(), nil), "b")
 }
 
 //
@@ -95,6 +96,9 @@ func newInitFailProcess(name string) Process {
 	return &initFailProcess{name: name}
 }
 
-func (p *initFailProcess) Init(config config.Config) error { return fmt.Errorf("%s", p.name) }
-func (p *initFailProcess) Start() error                    { return nil }
-func (p *initFailProcess) Stop() error                     { return nil }
+func (p *initFailProcess) Init(ctx context.Context, config config.Config) error {
+	return fmt.Errorf("%s", p.name)
+}
+
+func (p *initFailProcess) Start(ctx context.Context) error { return nil }
+func (p *initFailProcess) Stop(ctx context.Context) error  { return nil }

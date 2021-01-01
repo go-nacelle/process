@@ -1,6 +1,7 @@
 package process
 
 import (
+	"context"
 	"time"
 
 	"github.com/go-nacelle/log"
@@ -10,6 +11,7 @@ import (
 // private fields.
 type InitializerMeta struct {
 	Initializer
+	contextFilter   func(ctx context.Context) context.Context
 	name            string
 	logFields       log.LogFields
 	initTimeout     time.Duration
@@ -20,6 +22,14 @@ func newInitializerMeta(initializer Initializer) *InitializerMeta {
 	return &InitializerMeta{
 		Initializer: initializer,
 	}
+}
+
+func (m *InitializerMeta) FilterContext(ctx context.Context) context.Context {
+	if m.contextFilter == nil {
+		return ctx
+	}
+
+	return m.contextFilter(ctx)
 }
 
 // Name returns the name of the initializer.

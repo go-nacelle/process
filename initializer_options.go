@@ -1,6 +1,7 @@
 package process
 
 import (
+	"context"
 	"time"
 
 	"github.com/go-nacelle/log"
@@ -9,6 +10,11 @@ import (
 // InitializerConfigFunc is a function used to append additional
 // metadata to an initializer during registration.
 type InitializerConfigFunc func(*InitializerMeta)
+
+// WithInitializerContextFilter sets the context filter for the initializer.
+func WithInitializerContextFilter(f func(ctx context.Context) context.Context) InitializerConfigFunc {
+	return func(meta *InitializerMeta) { meta.contextFilter = f }
+}
 
 // WithInitializerName assigns a name to an initializer, visible in logs.
 func WithInitializerName(name string) InitializerConfigFunc {

@@ -3,6 +3,7 @@
 package mocks
 
 import (
+	"context"
 	config "github.com/go-nacelle/config"
 	process "github.com/go-nacelle/process"
 	"sync"
@@ -27,17 +28,17 @@ type MockProcess struct {
 func NewMockProcess() *MockProcess {
 	return &MockProcess{
 		InitFunc: &ProcessInitFunc{
-			defaultHook: func(config.Config) error {
+			defaultHook: func(context.Context, config.Config) error {
 				return nil
 			},
 		},
 		StartFunc: &ProcessStartFunc{
-			defaultHook: func() error {
+			defaultHook: func(context.Context) error {
 				return nil
 			},
 		},
 		StopFunc: &ProcessStopFunc{
-			defaultHook: func() error {
+			defaultHook: func(context.Context) error {
 				return nil
 			},
 		},
@@ -63,23 +64,23 @@ func NewMockProcessFrom(i process.Process) *MockProcess {
 // ProcessInitFunc describes the behavior when the Init method of the parent
 // MockProcess instance is invoked.
 type ProcessInitFunc struct {
-	defaultHook func(config.Config) error
-	hooks       []func(config.Config) error
+	defaultHook func(context.Context, config.Config) error
+	hooks       []func(context.Context, config.Config) error
 	history     []ProcessInitFuncCall
 	mutex       sync.Mutex
 }
 
 // Init delegates to the next hook function in the queue and stores the
 // parameter and result values of this invocation.
-func (m *MockProcess) Init(v0 config.Config) error {
-	r0 := m.InitFunc.nextHook()(v0)
-	m.InitFunc.appendCall(ProcessInitFuncCall{v0, r0})
+func (m *MockProcess) Init(v0 context.Context, v1 config.Config) error {
+	r0 := m.InitFunc.nextHook()(v0, v1)
+	m.InitFunc.appendCall(ProcessInitFuncCall{v0, v1, r0})
 	return r0
 }
 
 // SetDefaultHook sets function that is called when the Init method of the
 // parent MockProcess instance is invoked and the hook queue is empty.
-func (f *ProcessInitFunc) SetDefaultHook(hook func(config.Config) error) {
+func (f *ProcessInitFunc) SetDefaultHook(hook func(context.Context, config.Config) error) {
 	f.defaultHook = hook
 }
 
@@ -87,7 +88,7 @@ func (f *ProcessInitFunc) SetDefaultHook(hook func(config.Config) error) {
 // Init method of the parent MockProcess instance invokes the hook at the
 // front of the queue and discards it. After the queue is empty, the default
 // hook function is invoked for any future action.
-func (f *ProcessInitFunc) PushHook(hook func(config.Config) error) {
+func (f *ProcessInitFunc) PushHook(hook func(context.Context, config.Config) error) {
 	f.mutex.Lock()
 	f.hooks = append(f.hooks, hook)
 	f.mutex.Unlock()
@@ -96,7 +97,7 @@ func (f *ProcessInitFunc) PushHook(hook func(config.Config) error) {
 // SetDefaultReturn calls SetDefaultDefaultHook with a function that returns
 // the given values.
 func (f *ProcessInitFunc) SetDefaultReturn(r0 error) {
-	f.SetDefaultHook(func(config.Config) error {
+	f.SetDefaultHook(func(context.Context, config.Config) error {
 		return r0
 	})
 }
@@ -104,12 +105,12 @@ func (f *ProcessInitFunc) SetDefaultReturn(r0 error) {
 // PushReturn calls PushDefaultHook with a function that returns the given
 // values.
 func (f *ProcessInitFunc) PushReturn(r0 error) {
-	f.PushHook(func(config.Config) error {
+	f.PushHook(func(context.Context, config.Config) error {
 		return r0
 	})
 }
 
-func (f *ProcessInitFunc) nextHook() func(config.Config) error {
+func (f *ProcessInitFunc) nextHook() func(context.Context, config.Config) error {
 	f.mutex.Lock()
 	defer f.mutex.Unlock()
 
@@ -144,7 +145,10 @@ func (f *ProcessInitFunc) History() []ProcessInitFuncCall {
 type ProcessInitFuncCall struct {
 	// Arg0 is the value of the 1st argument passed to this method
 	// invocation.
-	Arg0 config.Config
+	Arg0 context.Context
+	// Arg1 is the value of the 2nd argument passed to this method
+	// invocation.
+	Arg1 config.Config
 	// Result0 is the value of the 1st result returned from this method
 	// invocation.
 	Result0 error
@@ -153,7 +157,7 @@ type ProcessInitFuncCall struct {
 // Args returns an interface slice containing the arguments of this
 // invocation.
 func (c ProcessInitFuncCall) Args() []interface{} {
-	return []interface{}{c.Arg0}
+	return []interface{}{c.Arg0, c.Arg1}
 }
 
 // Results returns an interface slice containing the results of this
@@ -165,23 +169,23 @@ func (c ProcessInitFuncCall) Results() []interface{} {
 // ProcessStartFunc describes the behavior when the Start method of the
 // parent MockProcess instance is invoked.
 type ProcessStartFunc struct {
-	defaultHook func() error
-	hooks       []func() error
+	defaultHook func(context.Context) error
+	hooks       []func(context.Context) error
 	history     []ProcessStartFuncCall
 	mutex       sync.Mutex
 }
 
 // Start delegates to the next hook function in the queue and stores the
 // parameter and result values of this invocation.
-func (m *MockProcess) Start() error {
-	r0 := m.StartFunc.nextHook()()
-	m.StartFunc.appendCall(ProcessStartFuncCall{r0})
+func (m *MockProcess) Start(v0 context.Context) error {
+	r0 := m.StartFunc.nextHook()(v0)
+	m.StartFunc.appendCall(ProcessStartFuncCall{v0, r0})
 	return r0
 }
 
 // SetDefaultHook sets function that is called when the Start method of the
 // parent MockProcess instance is invoked and the hook queue is empty.
-func (f *ProcessStartFunc) SetDefaultHook(hook func() error) {
+func (f *ProcessStartFunc) SetDefaultHook(hook func(context.Context) error) {
 	f.defaultHook = hook
 }
 
@@ -189,7 +193,7 @@ func (f *ProcessStartFunc) SetDefaultHook(hook func() error) {
 // Start method of the parent MockProcess instance invokes the hook at the
 // front of the queue and discards it. After the queue is empty, the default
 // hook function is invoked for any future action.
-func (f *ProcessStartFunc) PushHook(hook func() error) {
+func (f *ProcessStartFunc) PushHook(hook func(context.Context) error) {
 	f.mutex.Lock()
 	f.hooks = append(f.hooks, hook)
 	f.mutex.Unlock()
@@ -198,7 +202,7 @@ func (f *ProcessStartFunc) PushHook(hook func() error) {
 // SetDefaultReturn calls SetDefaultDefaultHook with a function that returns
 // the given values.
 func (f *ProcessStartFunc) SetDefaultReturn(r0 error) {
-	f.SetDefaultHook(func() error {
+	f.SetDefaultHook(func(context.Context) error {
 		return r0
 	})
 }
@@ -206,12 +210,12 @@ func (f *ProcessStartFunc) SetDefaultReturn(r0 error) {
 // PushReturn calls PushDefaultHook with a function that returns the given
 // values.
 func (f *ProcessStartFunc) PushReturn(r0 error) {
-	f.PushHook(func() error {
+	f.PushHook(func(context.Context) error {
 		return r0
 	})
 }
 
-func (f *ProcessStartFunc) nextHook() func() error {
+func (f *ProcessStartFunc) nextHook() func(context.Context) error {
 	f.mutex.Lock()
 	defer f.mutex.Unlock()
 
@@ -244,6 +248,9 @@ func (f *ProcessStartFunc) History() []ProcessStartFuncCall {
 // ProcessStartFuncCall is an object that describes an invocation of method
 // Start on an instance of MockProcess.
 type ProcessStartFuncCall struct {
+	// Arg0 is the value of the 1st argument passed to this method
+	// invocation.
+	Arg0 context.Context
 	// Result0 is the value of the 1st result returned from this method
 	// invocation.
 	Result0 error
@@ -252,7 +259,7 @@ type ProcessStartFuncCall struct {
 // Args returns an interface slice containing the arguments of this
 // invocation.
 func (c ProcessStartFuncCall) Args() []interface{} {
-	return []interface{}{}
+	return []interface{}{c.Arg0}
 }
 
 // Results returns an interface slice containing the results of this
@@ -264,23 +271,23 @@ func (c ProcessStartFuncCall) Results() []interface{} {
 // ProcessStopFunc describes the behavior when the Stop method of the parent
 // MockProcess instance is invoked.
 type ProcessStopFunc struct {
-	defaultHook func() error
-	hooks       []func() error
+	defaultHook func(context.Context) error
+	hooks       []func(context.Context) error
 	history     []ProcessStopFuncCall
 	mutex       sync.Mutex
 }
 
 // Stop delegates to the next hook function in the queue and stores the
 // parameter and result values of this invocation.
-func (m *MockProcess) Stop() error {
-	r0 := m.StopFunc.nextHook()()
-	m.StopFunc.appendCall(ProcessStopFuncCall{r0})
+func (m *MockProcess) Stop(v0 context.Context) error {
+	r0 := m.StopFunc.nextHook()(v0)
+	m.StopFunc.appendCall(ProcessStopFuncCall{v0, r0})
 	return r0
 }
 
 // SetDefaultHook sets function that is called when the Stop method of the
 // parent MockProcess instance is invoked and the hook queue is empty.
-func (f *ProcessStopFunc) SetDefaultHook(hook func() error) {
+func (f *ProcessStopFunc) SetDefaultHook(hook func(context.Context) error) {
 	f.defaultHook = hook
 }
 
@@ -288,7 +295,7 @@ func (f *ProcessStopFunc) SetDefaultHook(hook func() error) {
 // Stop method of the parent MockProcess instance invokes the hook at the
 // front of the queue and discards it. After the queue is empty, the default
 // hook function is invoked for any future action.
-func (f *ProcessStopFunc) PushHook(hook func() error) {
+func (f *ProcessStopFunc) PushHook(hook func(context.Context) error) {
 	f.mutex.Lock()
 	f.hooks = append(f.hooks, hook)
 	f.mutex.Unlock()
@@ -297,7 +304,7 @@ func (f *ProcessStopFunc) PushHook(hook func() error) {
 // SetDefaultReturn calls SetDefaultDefaultHook with a function that returns
 // the given values.
 func (f *ProcessStopFunc) SetDefaultReturn(r0 error) {
-	f.SetDefaultHook(func() error {
+	f.SetDefaultHook(func(context.Context) error {
 		return r0
 	})
 }
@@ -305,12 +312,12 @@ func (f *ProcessStopFunc) SetDefaultReturn(r0 error) {
 // PushReturn calls PushDefaultHook with a function that returns the given
 // values.
 func (f *ProcessStopFunc) PushReturn(r0 error) {
-	f.PushHook(func() error {
+	f.PushHook(func(context.Context) error {
 		return r0
 	})
 }
 
-func (f *ProcessStopFunc) nextHook() func() error {
+func (f *ProcessStopFunc) nextHook() func(context.Context) error {
 	f.mutex.Lock()
 	defer f.mutex.Unlock()
 
@@ -343,6 +350,9 @@ func (f *ProcessStopFunc) History() []ProcessStopFuncCall {
 // ProcessStopFuncCall is an object that describes an invocation of method
 // Stop on an instance of MockProcess.
 type ProcessStopFuncCall struct {
+	// Arg0 is the value of the 1st argument passed to this method
+	// invocation.
+	Arg0 context.Context
 	// Result0 is the value of the 1st result returned from this method
 	// invocation.
 	Result0 error
@@ -351,7 +361,7 @@ type ProcessStopFuncCall struct {
 // Args returns an interface slice containing the arguments of this
 // invocation.
 func (c ProcessStopFuncCall) Args() []interface{} {
-	return []interface{}{}
+	return []interface{}{c.Arg0}
 }
 
 // Results returns an interface slice containing the results of this

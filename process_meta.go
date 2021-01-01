@@ -1,6 +1,7 @@
 package process
 
 import (
+	"context"
 	"sync"
 	"time"
 
@@ -10,16 +11,20 @@ import (
 // ProcessMeta wraps a process with some package private
 // fields.
 type ProcessMeta struct {
+	sync.RWMutex
 	Process
+	contextFilter   func(ctx context.Context) context.Context
 	name            string
 	logFields       log.LogFields
 	priority        int
 	silentExit      bool
 	once            *sync.Once
 	stopped         chan struct{}
+	cancelCtx       func()
 	initTimeout     time.Duration
 	startTimeout    time.Duration
 	shutdownTimeout time.Duration
+	finalizeTimeout time.Duration
 }
 
 func newProcessMeta(process Process) *ProcessMeta {
@@ -28,6 +33,14 @@ func newProcessMeta(process Process) *ProcessMeta {
 		once:    &sync.Once{},
 		stopped: make(chan struct{}),
 	}
+}
+
+func (m *ProcessMeta) FilterContext(ctx context.Context) context.Context {
+	if m.contextFilter == nil {
+		return ctx
+	}
+
+	return m.contextFilter(ctx)
 }
 
 // Name returns the name of the process.
@@ -39,7 +52,7 @@ func (m *ProcessMeta) Name() string {
 	return m.name
 }
 
-// Logields returns logging fields registered to this process.
+// LogFields returns logging fields registered to this process.
 func (m *ProcessMeta) LogFields() log.LogFields {
 	return m.logFields
 }
@@ -53,13 +66,40 @@ func (m *ProcessMeta) InitTimeout() time.Duration {
 // Stop wraps the underlying process's Stop method with a Once
 // value in order to guarantee that the Stop method will not
 // take effect multiple times.
-func (m *ProcessMeta) Stop() (err error) {
+func (m *ProcessMeta) Stop(ctx context.Context) (err error) {
 	m.once.Do(func() {
+		m.RLock()
 		close(m.stopped)
-		err = m.Process.Stop()
+		cancelCtx := m.cancelCtx
+		m.RUnlock()
+
+		err = m.Process.Stop(ctx)
+
+		if cancelCtx != nil {
+			cancelCtx()
+		}
 	})
 
 	return
+}
+
+func (m *ProcessMeta) setCancelCtx(cancelCtx func()) {
+	m.Lock()
+	defer m.Unlock()
+
+	select {
+	case <-m.stopped:
+		cancelCtx()
+		return
+	default:
+		m.cancelCtx = cancelCtx
+	}
+}
+
+// FinalizeTimeout returns the maximum timeout allowed for a call to
+// the Finalize function. A zero value indicates no timeout.
+func (m *ProcessMeta) FinalizeTimeout() time.Duration {
+	return m.finalizeTimeout
 }
 
 // Wrapped returns the underlying process.

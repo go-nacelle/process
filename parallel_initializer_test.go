@@ -1,6 +1,7 @@
 package process
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
@@ -29,7 +30,7 @@ func TestParallelInitializerInitialize(t *testing.T) {
 	pi.RegisterInitializer(i2)
 	pi.RegisterInitializer(i3)
 
-	require.Nil(t, pi.Init(nil))
+	require.Nil(t, pi.Init(context.Background(), nil))
 
 	// May initialize in any order
 	eventually(t, stringChanReceivesUnordered(init, "a", "b", "c"))
@@ -69,7 +70,7 @@ func TestParallelInitializerInitError(t *testing.T) {
 	WithInitializerName("c")(m3)
 	WithInitializerName("d")(m4)
 
-	err := pi.Init(nil)
+	err := pi.Init(context.Background(), nil)
 	require.NotNil(t, err)
 
 	expected := []errMeta{
@@ -104,7 +105,7 @@ func TestParallelInitializerFinalize(t *testing.T) {
 	pi.RegisterInitializer(i2)
 	pi.RegisterInitializer(i3)
 
-	require.Nil(t, pi.Finalize())
+	require.Nil(t, pi.Finalize(context.Background()))
 
 	// May finalize in any order
 	eventually(t, stringChanReceivesUnordered(finalize, "a", "c"))
@@ -140,7 +141,7 @@ func TestParallelInitializerFinalizeError(t *testing.T) {
 	WithInitializerName("b")(m2)
 	WithInitializerName("c")(m3)
 
-	err := pi.Finalize()
+	err := pi.Finalize(context.Background())
 	require.NotNil(t, err)
 
 	expected := []errMeta{

@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### Added
+
+- Added `Finalize` support to `Process` interface. [#5](https://github.com/go-nacelle/process/pull/5)
+- Added `WithInitializerContextFilter` and `WithProcessContextFilter`. [#5](https://github.com/go-nacelle/process/pull/5)
+
+### Changed
+
+- Added context parameters to `Init`, `Start`, `Stop`, and `Finalize` methods. [#5](https://github.com/go-nacelle/process/pull/5)
+
 ## [v1.1.0] - 2020-10-03
 
 ### Added

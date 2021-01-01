@@ -1,6 +1,7 @@
 package process
 
 import (
+	"context"
 	"time"
 
 	"github.com/go-nacelle/log"
@@ -9,6 +10,11 @@ import (
 // ProcessConfigFunc is a function used to append additional metadata
 // to an process during registration.
 type ProcessConfigFunc func(*ProcessMeta)
+
+// WithProcessContextFilter sets the context filter for the process
+func WithProcessContextFilter(f func(ctx context.Context) context.Context) ProcessConfigFunc {
+	return func(meta *ProcessMeta) { meta.contextFilter = f }
+}
 
 // WithProcessName assigns a name to an process, visible in logs.
 func WithProcessName(name string) ProcessConfigFunc {
@@ -49,4 +55,9 @@ func WithProcessStartTimeout(timeout time.Duration) ProcessConfigFunc {
 // to yield after the Stop method has been called.
 func WithProcessShutdownTimeout(timeout time.Duration) ProcessConfigFunc {
 	return func(meta *ProcessMeta) { meta.shutdownTimeout = timeout }
+}
+
+// WithProcessFinalizerTimeout sets the time limit for the finalizer.
+func WithProcessFinalizerTimeout(timeout time.Duration) ProcessConfigFunc {
+	return func(meta *ProcessMeta) { meta.finalizeTimeout = timeout }
 }

@@ -3,6 +3,7 @@
 package mocks
 
 import (
+	"context"
 	config "github.com/go-nacelle/config"
 	process "github.com/go-nacelle/process"
 	"sync"
@@ -25,7 +26,7 @@ type MockRunner struct {
 func NewMockRunner() *MockRunner {
 	return &MockRunner{
 		RunFunc: &RunnerRunFunc{
-			defaultHook: func(config.Config) <-chan error {
+			defaultHook: func(context.Context, config.Config) <-chan error {
 				return nil
 			},
 		},
@@ -53,23 +54,23 @@ func NewMockRunnerFrom(i process.Runner) *MockRunner {
 // RunnerRunFunc describes the behavior when the Run method of the parent
 // MockRunner instance is invoked.
 type RunnerRunFunc struct {
-	defaultHook func(config.Config) <-chan error
-	hooks       []func(config.Config) <-chan error
+	defaultHook func(context.Context, config.Config) <-chan error
+	hooks       []func(context.Context, config.Config) <-chan error
 	history     []RunnerRunFuncCall
 	mutex       sync.Mutex
 }
 
 // Run delegates to the next hook function in the queue and stores the
 // parameter and result values of this invocation.
-func (m *MockRunner) Run(v0 config.Config) <-chan error {
-	r0 := m.RunFunc.nextHook()(v0)
-	m.RunFunc.appendCall(RunnerRunFuncCall{v0, r0})
+func (m *MockRunner) Run(v0 context.Context, v1 config.Config) <-chan error {
+	r0 := m.RunFunc.nextHook()(v0, v1)
+	m.RunFunc.appendCall(RunnerRunFuncCall{v0, v1, r0})
 	return r0
 }
 
 // SetDefaultHook sets function that is called when the Run method of the
 // parent MockRunner instance is invoked and the hook queue is empty.
-func (f *RunnerRunFunc) SetDefaultHook(hook func(config.Config) <-chan error) {
+func (f *RunnerRunFunc) SetDefaultHook(hook func(context.Context, config.Config) <-chan error) {
 	f.defaultHook = hook
 }
 
@@ -77,7 +78,7 @@ func (f *RunnerRunFunc) SetDefaultHook(hook func(config.Config) <-chan error) {
 // Run method of the parent MockRunner instance invokes the hook at the
 // front of the queue and discards it. After the queue is empty, the default
 // hook function is invoked for any future action.
-func (f *RunnerRunFunc) PushHook(hook func(config.Config) <-chan error) {
+func (f *RunnerRunFunc) PushHook(hook func(context.Context, config.Config) <-chan error) {
 	f.mutex.Lock()
 	f.hooks = append(f.hooks, hook)
 	f.mutex.Unlock()
@@ -86,7 +87,7 @@ func (f *RunnerRunFunc) PushHook(hook func(config.Config) <-chan error) {
 // SetDefaultReturn calls SetDefaultDefaultHook with a function that returns
 // the given values.
 func (f *RunnerRunFunc) SetDefaultReturn(r0 <-chan error) {
-	f.SetDefaultHook(func(config.Config) <-chan error {
+	f.SetDefaultHook(func(context.Context, config.Config) <-chan error {
 		return r0
 	})
 }
@@ -94,12 +95,12 @@ func (f *RunnerRunFunc) SetDefaultReturn(r0 <-chan error) {
 // PushReturn calls PushDefaultHook with a function that returns the given
 // values.
 func (f *RunnerRunFunc) PushReturn(r0 <-chan error) {
-	f.PushHook(func(config.Config) <-chan error {
+	f.PushHook(func(context.Context, config.Config) <-chan error {
 		return r0
 	})
 }
 
-func (f *RunnerRunFunc) nextHook() func(config.Config) <-chan error {
+func (f *RunnerRunFunc) nextHook() func(context.Context, config.Config) <-chan error {
 	f.mutex.Lock()
 	defer f.mutex.Unlock()
 
@@ -134,7 +135,10 @@ func (f *RunnerRunFunc) History() []RunnerRunFuncCall {
 type RunnerRunFuncCall struct {
 	// Arg0 is the value of the 1st argument passed to this method
 	// invocation.
-	Arg0 config.Config
+	Arg0 context.Context
+	// Arg1 is the value of the 2nd argument passed to this method
+	// invocation.
+	Arg1 config.Config
 	// Result0 is the value of the 1st result returned from this method
 	// invocation.
 	Result0 <-chan error
@@ -143,7 +147,7 @@ type RunnerRunFuncCall struct {
 // Args returns an interface slice containing the arguments of this
 // invocation.
 func (c RunnerRunFuncCall) Args() []interface{} {
-	return []interface{}{c.Arg0}
+	return []interface{}{c.Arg0, c.Arg1}
 }
 
 // Results returns an interface slice containing the results of this
