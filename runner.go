@@ -26,12 +26,12 @@ type Runner interface {
 	LoadConfig(config config.Config)
 
 	// ValidateConfig will return any errors that occurred during LoadConfig,
-	// or any new errors that occur after callign the PostLoad method on each
+	// or any new errors that occur after calling the PostLoad method on each
 	// configuration object conforming to the PostLoadConfig interface.
 	ValidateConfig(config config.Config) error
 
 	// DescribeConfiguration returns a string description of the configuration
-	// targets registered
+	// targets registered by each registered item in the process container.
 	DescribeConfiguration(config config.Config, additionalConfigurationTargets ...interface{}) (string, error)
 
 	// Run starts and monitors the registered items in the process container.
