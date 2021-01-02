@@ -11,7 +11,7 @@ import (
 // to an process during registration.
 type ProcessConfigFunc func(*ProcessMeta)
 
-// WithProcessContextFilter sets the context filter for the process
+// WithProcessContextFilter sets the context filter for the process.
 func WithProcessContextFilter(f func(ctx context.Context) context.Context) ProcessConfigFunc {
 	return func(meta *ProcessMeta) { meta.contextFilter = f }
 }
