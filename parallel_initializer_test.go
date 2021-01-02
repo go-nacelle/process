@@ -11,6 +11,31 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestParallelInitializerRegisterConfiguration(t *testing.T) {
+	container := service.NewServiceContainer()
+	init := make(chan string, 3)
+	finalize := make(chan string, 3)
+
+	i1 := newTaggedFinalizer(init, finalize, "a")
+	i2 := newTaggedInitializer(init, "b")
+	i3 := newTaggedFinalizer(init, finalize, "c")
+
+	pi := NewParallelInitializer(
+		WithParallelInitializerContainer(container),
+		WithParallelInitializerLogger(log.NewNilLogger()),
+	)
+
+	// Register things
+	pi.RegisterInitializer(i1)
+	pi.RegisterInitializer(i2)
+	pi.RegisterInitializer(i3)
+
+	pi.RegisterConfiguration(nil)
+	assert.True(t, i1.registerConfigurationCalled)
+	assert.True(t, i2.registerConfigurationCalled)
+	assert.True(t, i3.registerConfigurationCalled)
+}
+
 func TestParallelInitializerInitialize(t *testing.T) {
 	container := service.NewServiceContainer()
 	init := make(chan string, 3)
@@ -30,7 +55,7 @@ func TestParallelInitializerInitialize(t *testing.T) {
 	pi.RegisterInitializer(i2)
 	pi.RegisterInitializer(i3)
 
-	require.Nil(t, pi.Init(context.Background(), nil))
+	require.Nil(t, pi.Init(context.Background()))
 
 	// May initialize in any order
 	eventually(t, stringChanReceivesUnordered(init, "a", "b", "c"))
@@ -70,7 +95,7 @@ func TestParallelInitializerInitError(t *testing.T) {
 	WithInitializerName("c")(m3)
 	WithInitializerName("d")(m4)
 
-	err := pi.Init(context.Background(), nil)
+	err := pi.Init(context.Background())
 	require.NotNil(t, err)
 
 	expected := []errMeta{

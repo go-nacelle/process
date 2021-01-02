@@ -3,13 +3,139 @@ package process
 import (
 	"context"
 	"fmt"
+	"sort"
 	"testing"
 	"time"
 
 	"github.com/derision-test/glock"
-	"github.com/go-nacelle/config"
+	"github.com/go-nacelle/config/mocks"
 	"github.com/go-nacelle/service"
+	"github.com/stretchr/testify/require"
 )
+
+func TestRunnerLoadAndValidateConfig(t *testing.T) {
+	services := service.NewServiceContainer()
+	processes := NewProcessContainer()
+	health := NewHealth()
+	runner := NewRunner(processes, services, health)
+
+	i1 := newTaggedInitializer(nil, "a")
+	i2 := newTaggedInitializer(nil, "b")
+	i3 := newTaggedInitializer(nil, "c")
+	p1 := newTaggedProcess(nil, nil, nil, "d")
+	p2 := newTaggedProcess(nil, nil, nil, "e")
+	p3 := newTaggedProcess(nil, nil, nil, "f")
+
+	// Register things
+	processes.RegisterInitializer(i1)
+	processes.RegisterInitializer(i2)
+	processes.RegisterInitializer(i3)
+	processes.RegisterProcess(p1)
+	processes.RegisterProcess(p2, WithPriority(5))
+	processes.RegisterProcess(p3, WithPriority(3))
+
+	// Configuration target must be a struct
+	type T struct{ Name string }
+
+	// Set registered configuration targets
+	i1.configurationTargets = []interface{}{T{"iA1"}, T{"iB1"}}
+	i2.configurationTargets = []interface{}{T{"iA2"}, T{"iB2"}}
+	i3.configurationTargets = []interface{}{T{"iA3"}, T{"iB3"}}
+	p1.configurationTargets = []interface{}{T{"pA4"}}
+	p2.configurationTargets = []interface{}{T{"pA5"}}
+	p3.configurationTargets = []interface{}{T{"pA6"}}
+
+	config := mocks.NewMockConfig()
+	runner.LoadConfig(config)
+	require.Nil(t, runner.ValidateConfig(config))
+
+	var values []string
+	for _, call := range config.LoadFunc.History() {
+		values = append(values, call.Arg0.(T).Name)
+	}
+	sort.Strings(values)
+
+	expected := []string{
+		"iA1",
+		"iA2",
+		"iA3",
+		"iB1",
+		"iB2",
+		"iB3",
+		"pA4",
+		"pA5",
+		"pA6",
+	}
+	require.Equal(t, expected, values)
+}
+
+func TestRunnerLoadAndValidateConfigLoadFailure(t *testing.T) {
+	services := service.NewServiceContainer()
+	processes := NewProcessContainer()
+	health := NewHealth()
+	runner := NewRunner(processes, services, health)
+
+	i1 := newTaggedInitializer(nil, "a")
+	i2 := newTaggedInitializer(nil, "b")
+	i3 := newTaggedInitializer(nil, "c")
+	p1 := newTaggedProcess(nil, nil, nil, "d")
+	p2 := newTaggedProcess(nil, nil, nil, "e")
+	p3 := newTaggedProcess(nil, nil, nil, "f")
+
+	// Register things
+	processes.RegisterInitializer(i1)
+	processes.RegisterInitializer(i2)
+	processes.RegisterInitializer(i3)
+	processes.RegisterProcess(p1)
+	processes.RegisterProcess(p2, WithPriority(5))
+	processes.RegisterProcess(p3, WithPriority(3))
+
+	// Configuration target must be a struct
+	type T struct{ Name string }
+
+	// Set registered configuration targets
+	i1.configurationTargets = []interface{}{T{"iA1"}, T{"iB1"}}
+
+	config := mocks.NewMockConfig()
+	config.LoadFunc.PushReturn(fmt.Errorf("oops"))
+
+	runner.LoadConfig(config)
+	require.NotNil(t, runner.ValidateConfig(config))
+}
+
+func TestRunnerLoadAndValidateConfigPostLoadFailure(t *testing.T) {
+	services := service.NewServiceContainer()
+	processes := NewProcessContainer()
+	health := NewHealth()
+	runner := NewRunner(processes, services, health)
+
+	i1 := newTaggedInitializer(nil, "a")
+	i2 := newTaggedInitializer(nil, "b")
+	i3 := newTaggedInitializer(nil, "c")
+	p1 := newTaggedProcess(nil, nil, nil, "d")
+	p2 := newTaggedProcess(nil, nil, nil, "e")
+	p3 := newTaggedProcess(nil, nil, nil, "f")
+
+	// Register things
+	processes.RegisterInitializer(i1)
+	processes.RegisterInitializer(i2)
+	processes.RegisterInitializer(i3)
+	processes.RegisterProcess(p1)
+	processes.RegisterProcess(p2, WithPriority(5))
+	processes.RegisterProcess(p3, WithPriority(3))
+
+	// Configuration target must be a struct
+	type T struct{ Name string }
+
+	// Set registered configuration targets
+	i1.configurationTargets = []interface{}{T{"iA1"}, T{"iB1"}}
+
+	config := mocks.NewMockConfig()
+	config.PostLoadFunc.PushReturn(fmt.Errorf("oops"))
+
+	runner.LoadConfig(config)
+	require.NotNil(t, runner.ValidateConfig(config))
+}
 
 func TestRunnerRunOrder(t *testing.T) {
 	services := service.NewServiceContainer()
@@ -46,7 +172,7 @@ func TestRunnerRunOrder(t *testing.T) {
 	go func() {
 		defer close(errChan)
 
-		for err := range runner.Run(context.Background(), nil) {
+		for err := range runner.Run(context.Background()) {
 			errChan <- err
 		}
 	}()
@@ -106,7 +232,7 @@ func TestRunnerEarlyExit(t *testing.T) {
 	go func() {
 		defer close(errChan)
 
-		for err := range runner.Run(context.Background(), nil) {
+		for err := range runner.Run(context.Background()) {
 			errChan <- err
 		}
 	}()
@@ -138,7 +264,7 @@ func TestRunnerSilentExit(t *testing.T) {
 	processes.RegisterProcess(p1)
 	processes.RegisterProcess(p2, WithSilentExit())
 
-	go runner.Run(context.Background(), nil)
+	go runner.Run(context.Background())
 
 	eventually(t, stringChanReceivesOrdered(init, "a", "b"))
 	eventually(t, stringChanReceivesN(start, 2))
@@ -165,7 +291,7 @@ func TestRunnerShutdownTimeout(t *testing.T) {
 	go func() {
 		defer close(errChan)
 
-		for err := range runner.Run(context.Background(), nil) {
+		for err := range runner.Run(context.Background()) {
 			errChan <- err
 		}
 	}()
@@ -220,7 +346,7 @@ func TestRunnerProcessStartTimeout(t *testing.T) {
 	go func() {
 		defer close(errChan)
 
-		for err := range runner.Run(context.Background(), nil) {
+		for err := range runner.Run(context.Background()) {
 			errChan <- err
 		}
 	}()
@@ -263,7 +389,7 @@ func TestRunnerProcessShutdownTimeout(t *testing.T) {
 	go func() {
 		defer close(errChan)
 
-		for err := range runner.Run(context.Background(), nil) {
+		for err := range runner.Run(context.Background()) {
 			errChan <- err
 		}
 	}()
@@ -315,7 +441,7 @@ func TestRunnerInitializerInjectionError(t *testing.T) {
 	go func() {
 		defer close(errChan)
 
-		for err := range runner.Run(context.Background(), nil) {
+		for err := range runner.Run(context.Background()) {
 			errChan <- err
 		}
 	}()
@@ -363,7 +489,7 @@ func TestRunnerProcessInjectionError(t *testing.T) {
 	go func() {
 		defer close(errChan)
 
-		for err := range runner.Run(context.Background(), nil) {
+		for err := range runner.Run(context.Background()) {
 			errChan <- err
 		}
 	}()
@@ -402,7 +528,7 @@ func TestRunnerInitializerInitTimeout(t *testing.T) {
 	go func() {
 		defer close(errChan)
 
-		for err := range runner.Run(context.Background(), nil) {
+		for err := range runner.Run(context.Background()) {
 			errChan <- err
 		}
 	}()
@@ -440,7 +566,7 @@ func TestRunnerFinalizerFinalizeTimeout(t *testing.T) {
 	go func() {
 		defer close(errChan)
 
-		for err := range runner.Run(context.Background(), nil) {
+		for err := range runner.Run(context.Background()) {
 			errChan <- err
 		}
 	}()
@@ -487,7 +613,7 @@ func TestRunnerFinalizerError(t *testing.T) {
 	go func() {
 		defer close(errChan)
 
-		for err := range runner.Run(context.Background(), nil) {
+		for err := range runner.Run(context.Background()) {
 			errChan <- err
 		}
 	}()
@@ -528,7 +654,7 @@ func TestRunnerProcessInitTimeout(t *testing.T) {
 	go func() {
 		defer close(errChan)
 
-		for err := range runner.Run(context.Background(), nil) {
+		for err := range runner.Run(context.Background()) {
 			errChan <- err
 		}
 	}()
@@ -569,7 +695,7 @@ func TestRunnerInitializerError(t *testing.T) {
 	go func() {
 		defer close(errChan)
 
-		for err := range runner.Run(context.Background(), nil) {
+		for err := range runner.Run(context.Background()) {
 			errChan <- err
 		}
 	}()
@@ -622,7 +748,7 @@ func TestRunnerProcessInitError(t *testing.T) {
 	go func() {
 		defer close(errChan)
 
-		for err := range runner.Run(context.Background(), nil) {
+		for err := range runner.Run(context.Background()) {
 			errChan <- err
 		}
 	}()
@@ -685,7 +811,7 @@ func TestRunnerProcessStartError(t *testing.T) {
 	go func() {
 		defer close(errChan)
 
-		for err := range runner.Run(context.Background(), nil) {
+		for err := range runner.Run(context.Background()) {
 			errChan <- err
 		}
 	}()
@@ -755,7 +881,7 @@ func TestRunnerProcessStopError(t *testing.T) {
 	go func() {
 		defer close(errChan)
 
-		for err := range runner.Run(context.Background(), nil) {
+		for err := range runner.Run(context.Background()) {
 			errChan <- err
 		}
 	}()
@@ -803,7 +929,7 @@ func TestContext(t *testing.T) {
 	go func() {
 		defer close(errChan)
 
-		for err := range runner.Run(ctx, nil) {
+		for err := range runner.Run(ctx) {
 			errChan <- err
 		}
 	}()
@@ -824,9 +950,11 @@ func TestContext(t *testing.T) {
 //
 
 type taggedInitializer struct {
-	name    string
-	init    chan<- string
-	initErr error
+	name                        string
+	init                        chan<- string
+	initErr                     error
+	configurationTargets        []interface{}
+	registerConfigurationCalled bool
 }
 
 func newTaggedInitializer(init chan<- string, name string) *taggedInitializer {
@@ -836,7 +964,15 @@ func newTaggedInitializer(init chan<- string, name string) *taggedInitializer {
 	}
 }
 
-func (i *taggedInitializer) Init(ctx context.Context, c config.Config) error {
+func (i *taggedInitializer) RegisterConfiguration(registry ConfigurationRegistry) {
+	i.registerConfigurationCalled = true
+
+	for _, target := range i.configurationTargets {
+		registry.Register(target)
+	}
+}
+
+func (i *taggedInitializer) Init(ctx context.Context) error {
 	i.init <- i.name
 	return i.initErr
 }
@@ -869,11 +1005,13 @@ func (i *taggedFinalizer) Finalize(ctx context.Context) error {
 //
 
 type taggedProcess struct {
-	name  string
-	init  chan<- string
-	start chan<- string
-	stop  chan<- string
-	wait  chan struct{}
+	name                        string
+	init                        chan<- string
+	start                       chan<- string
+	stop                        chan<- string
+	configurationTargets        []interface{}
+	registerConfigurationCalled bool
+	wait                        chan struct{}
 
 	initErr  error
 	startErr error
@@ -890,7 +1028,15 @@ func newTaggedProcess(init, start, stop chan<- string, name string) *taggedProce
 	}
 }
 
-func (p *taggedProcess) Init(ctx context.Context, c config.Config) error {
+func (p *taggedProcess) RegisterConfiguration(registry ConfigurationRegistry) {
+	p.registerConfigurationCalled = true
+
+	for _, target := range p.configurationTargets {
+		registry.Register(target)
+	}
+}
+
+func (p *taggedProcess) Init(ctx context.Context) error {
 	p.init <- p.name
 	return p.initErr
 }
@@ -941,9 +1087,9 @@ func newBlockingProcess(sync chan struct{}) *blockingProcess {
 	}
 }
 
-func (p *blockingProcess) Init(ctx context.Context, c config.Config) error { return nil }
-func (p *blockingProcess) Start(ctx context.Context) error                 { close(p.sync); <-p.wait; return nil }
-func (p *blockingProcess) Stop(ctx context.Context) error                  { return nil }
+func (p *blockingProcess) Init(ctx context.Context) error  { return nil }
+func (p *blockingProcess) Start(ctx context.Context) error { close(p.sync); <-p.wait; return nil }
+func (p *blockingProcess) Stop(ctx context.Context) error  { return nil }
 
 //
 //
@@ -959,10 +1105,10 @@ type processWithService struct {
 func newInitializerWithService() *initializerWithService { return &initializerWithService{} }
 func newProcessWithService() *processWithService         { return &processWithService{} }
 
-func (i *initializerWithService) Init(ctx context.Context, c config.Config) error { return nil }
-func (p *processWithService) Init(ctx context.Context, c config.Config) error     { return nil }
-func (p *processWithService) Start(ctx context.Context) error                     { return nil }
-func (p *processWithService) Stop(ctx context.Context) error                      { return nil }
+func (i *initializerWithService) Init(ctx context.Context) error { return nil }
+func (p *processWithService) Init(ctx context.Context) error     { return nil }
+func (p *processWithService) Start(ctx context.Context) error    { return nil }
+func (p *processWithService) Stop(ctx context.Context) error     { return nil }
 
 //
 //
@@ -974,6 +1120,6 @@ func newContextProcess() *contextProcess {
 	return &contextProcess{}
 }
 
-func (p *contextProcess) Init(ctx context.Context, c config.Config) error { return nil }
-func (p *contextProcess) Start(ctx context.Context) error                 { <-ctx.Done(); return nil }
-func (p *contextProcess) Stop(ctx context.Context) error                  { return nil }
+func (p *contextProcess) Init(ctx context.Context) error  { return nil }
+func (p *contextProcess) Start(ctx context.Context) error { <-ctx.Done(); return nil }
+func (p *contextProcess) Stop(ctx context.Context) error  { return nil }

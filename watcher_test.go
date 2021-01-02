@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/derision-test/glock"
-	"github.com/go-nacelle/config"
 )
 
 func TestWatcherNoErrors(t *testing.T) {
@@ -131,7 +130,7 @@ func TestWatcherShutdownTimeout(t *testing.T) {
 //
 
 func makeNamedInitializer(name string) namedInitializer {
-	initializer := InitializerFunc(func(ctx context.Context, c config.Config) error {
+	initializer := InitializerFunc(func(ctx context.Context) error {
 		return nil
 	})
 
