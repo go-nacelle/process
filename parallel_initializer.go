@@ -23,6 +23,7 @@ type ParallelInitializer struct {
 }
 
 var _ Initializer = &ParallelInitializer{}
+var _ Configurable = &ParallelInitializer{}
 
 // NewParallelInitializer creates a new parallel initializer.
 func NewParallelInitializer(initializerConfigs ...ParallelInitializerConfigFunc) *ParallelInitializer {
@@ -50,6 +51,15 @@ func (i *ParallelInitializer) RegisterInitializer(
 	}
 
 	i.initializers = append(i.initializers, meta)
+}
+
+// RegisterConfiguration runs RegisterConfiguration on all registered initializers.
+func (pi *ParallelInitializer) RegisterConfiguration(config ConfigurationRegistry) {
+	for _, initializer := range pi.initializers {
+		if configurable, ok := initializer.Wrapped().(Configurable); ok {
+			configurable.RegisterConfiguration(config)
+		}
+	}
 }
 
 // Init runs Init on all registered initializers concurrently.
