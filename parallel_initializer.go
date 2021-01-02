@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/derision-test/glock"
-	"github.com/go-nacelle/config"
 	"github.com/go-nacelle/log"
 	"github.com/go-nacelle/service"
 )
@@ -63,7 +62,7 @@ func (pi *ParallelInitializer) RegisterConfiguration(config ConfigurationRegistr
 }
 
 // Init runs Init on all registered initializers concurrently.
-func (pi *ParallelInitializer) Init(ctx context.Context, config config.Config) error {
+func (pi *ParallelInitializer) Init(ctx context.Context) error {
 	for _, initializer := range pi.initializers {
 		if err := pi.inject(initializer); err != nil {
 			return errMetaSet{
@@ -73,7 +72,7 @@ func (pi *ParallelInitializer) Init(ctx context.Context, config config.Config) e
 	}
 
 	errMetas := errMetaSet{}
-	initErrors := pi.initializeAll(ctx, config)
+	initErrors := pi.initializeAll(ctx)
 
 	for i, err := range initErrors {
 		if err != nil {
@@ -124,7 +123,7 @@ func (pi *ParallelInitializer) inject(initializer namedInjectable) error {
 	return nil
 }
 
-func (pi *ParallelInitializer) initializeAll(ctx context.Context, config config.Config) []error {
+func (pi *ParallelInitializer) initializeAll(ctx context.Context) []error {
 	errors := make([]error, len(pi.initializers))
 	mutex := sync.Mutex{}
 	wg := sync.WaitGroup{}
@@ -135,7 +134,7 @@ func (pi *ParallelInitializer) initializeAll(ctx context.Context, config config.
 		go func(i int) {
 			defer wg.Done()
 
-			if err := pi.initWithTimeout(ctx, pi.initializers[i], config); err != nil {
+			if err := pi.initWithTimeout(ctx, pi.initializers[i]); err != nil {
 				mutex.Lock()
 				errors[i] = err
 				mutex.Unlock()
@@ -174,9 +173,9 @@ func (pi *ParallelInitializer) finalizeAll(ctx context.Context, initErrors []err
 	return errors
 }
 
-func (pi *ParallelInitializer) initWithTimeout(ctx context.Context, initializer namedInitializer, config config.Config) error {
+func (pi *ParallelInitializer) initWithTimeout(ctx context.Context, initializer namedInitializer) error {
 	errChan := makeErrChan(func() error {
-		return pi.init(ctx, initializer, config)
+		return pi.init(ctx, initializer)
 	})
 
 	select {
@@ -188,10 +187,10 @@ func (pi *ParallelInitializer) initWithTimeout(ctx context.Context, initializer 
 	}
 }
 
-func (pi *ParallelInitializer) init(ctx context.Context, initializer namedInitializer, config config.Config) error {
+func (pi *ParallelInitializer) init(ctx context.Context, initializer namedInitializer) error {
 	pi.Logger.WithFields(initializer.LogFields()).Info("Initializing %s", initializer.Name())
 
-	if err := initializer.Init(ctx, config); err != nil {
+	if err := initializer.Init(ctx); err != nil {
 		return fmt.Errorf(
 			"failed to initialize %s (%s)",
 			initializer.Name(),
