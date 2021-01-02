@@ -30,6 +30,10 @@ type Runner interface {
 	// configuration object conforming to the PostLoadConfig interface.
 	ValidateConfig(config config.Config) error
 
+	// DescribeConfiguration returns a string description of the configuration
+	// targets registered
+	DescribeConfiguration(config config.Config, additionalConfigurationTargets ...interface{}) (string, error)
+
 	// Run starts and monitors the registered items in the process container.
 	// This method returns a channel of errors. Each error from an initializer
 	// or a process will be sent on this channel (nil errors are ignored). This
@@ -193,6 +197,54 @@ func (r *runner) ValidateConfig(config config.Config) error {
 	}
 
 	return nil
+}
+
+func (r *runner) DescribeConfiguration(config config.Config, additionalConfigurationTargets ...interface{}) (string, error) {
+	var descriptions []string
+	for _, c := range additionalConfigurationTargets {
+		description, err := config.Describe(c)
+		if err != nil {
+			return "", err
+		}
+
+		descriptions = append(descriptions, formatConfigDescription(description)...)
+	}
+
+	for _, c := range r.configs {
+		description, err := config.Describe(c.target, c.modifiers...)
+		if err != nil {
+			return "", err
+		}
+
+		descriptions = append(descriptions, formatConfigDescription(description)...)
+	}
+
+	sort.Strings(descriptions)
+	return strings.Join(descriptions, "\n"), nil
+}
+
+func formatConfigDescription(description *config.StructDescription) []string {
+	var descriptions []string
+	for _, field := range description.Fields {
+		for key, value := range field.TagValues {
+			var parts []string
+			if field.Required {
+				parts = append(parts, "required")
+			}
+			if field.Default != "" {
+				parts = append(parts, fmt.Sprintf("default=%s", field.Default))
+			}
+
+			suffix := ""
+			if len(parts) > 0 {
+				suffix = fmt.Sprintf(" (%s)", strings.Join(parts, "; "))
+			}
+
+			descriptions = append(descriptions, fmt.Sprintf("(%s) %s%s", key, value, suffix))
+		}
+	}
+
+	return descriptions
 }
 
 func (r *runner) Run(ctx context.Context) <-chan error {
