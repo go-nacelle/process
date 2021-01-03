@@ -140,17 +140,19 @@ func NewRunner(
 func (r *runner) LoadConfig(config config.Config) {
 	r.logger.Info("Loading configuration")
 
-	for _, initializer := range r.processes.GetInitializers() {
-		if configurable, ok := initializer.Wrapped().(Configurable); ok {
-			registry := newConfigurationRegistry(config, initializer, func(config registeredConfig) {
-				r.configs = append(r.configs, config)
-			})
+	for i := 0; i < r.processes.NumInitializerPriorities(); i++ {
+		for _, initializer := range r.processes.GetInitializersAtPriorityIndex(i) {
+			if configurable, ok := initializer.Wrapped().(Configurable); ok {
+				registry := newConfigurationRegistry(config, initializer, func(config registeredConfig) {
+					r.configs = append(r.configs, config)
+				})
 
-			configurable.RegisterConfiguration(registry)
+				configurable.RegisterConfiguration(registry)
+			}
 		}
 	}
 
-	for i := 0; i < r.processes.NumPriorities(); i++ {
+	for i := 0; i < r.processes.NumProcessPriorities(); i++ {
 		for _, process := range r.processes.GetProcessesAtPriorityIndex(i) {
 			if configurable, ok := process.Wrapped().(Configurable); ok {
 				registry := newConfigurationRegistry(config, process, func(config registeredConfig) {
@@ -278,26 +280,74 @@ func (r *runner) Shutdown(timeout time.Duration) error {
 func (r *runner) runInitializers(ctx context.Context) bool {
 	r.logger.Info("Running initializers")
 
-	for i, initializer := range r.processes.GetInitializers() {
+	for i := 0; i < r.processes.NumInitializerPriorities(); i++ {
+		if !r.runInitializersAtPriorityIndex(ctx, i) {
+			return false
+		}
+	}
+
+	return true
+}
+
+func (r *runner) runInitializersAtPriorityIndex(ctx context.Context, priority int) bool {
+	initializers := r.processes.GetInitializersAtPriorityIndex(priority)
+
+	if priority == 0 {
+		for i, initializer := range initializers {
+			if !r.runInitializerList(ctx, 0, i, []*InitializerMeta{initializer}) {
+				return false
+			}
+		}
+
+		return true
+	}
+
+	return r.runInitializerList(ctx, priority, 0, initializers)
+}
+
+func (r *runner) runInitializerList(ctx context.Context, priority, adjust int, initializers []*InitializerMeta) bool {
+	for i, initializer := range initializers {
 		if err := r.inject(initializer); err != nil {
-			_ = r.unwindInitializers(ctx, i)
+			_ = r.unwindInitializers(ctx, priority, adjust+i)
 			r.errChan <- errMeta{err: err, source: initializer}
 			close(r.errChan)
 			return false
 		}
+	}
 
-		if err := r.initWithTimeout(initializer.FilterContext(ctx), initializer); err != nil {
-			_ = r.unwindInitializers(ctx, i)
-			// Parallel initializers may return multiple errors, so
-			// we return all of them here. This check if asymmetric
-			// as there is no equivalent for processes.
-			for _, err := range coerceToSet(err, initializer) {
-				r.errChan <- err
+	var wg sync.WaitGroup
+	errChan := make(chan errMeta, len(initializers))
+
+	for _, initializer := range initializers {
+		wg.Add(1)
+
+		go func(initializer *InitializerMeta) {
+			defer wg.Done()
+
+			if err := r.initWithTimeout(initializer.FilterContext(ctx), initializer); err != nil {
+				// Parallel initializers may return multiple errors, so
+				// we return all of them here. This check if asymmetric
+				// as there is no equivalent for processes.
+				for _, err := range coerceToSet(err, initializer) {
+					errChan <- err
+				}
 			}
+		}(initializer)
+	}
 
-			close(r.errChan)
-			return false
-		}
+	wg.Wait()
+	close(errChan)
+
+	success := true
+	for err := range errChan {
+		r.errChan <- err
+		success = false
+	}
+
+	if !success {
+		_ = r.unwindInitializers(ctx, priority, adjust+len(initializers))
+		close(r.errChan)
+		return false
 	}
 
 	return true
@@ -309,7 +359,6 @@ func (r *runner) runFinalizers(ctx context.Context, beforeIndex int) bool {
 	success := true
 	for i := beforeIndex - 1; i >= 0; i-- {
 		for _, process := range r.processes.GetProcessesAtPriorityIndex(i) {
-
 			if err := r.finalizeWithTimeout(process.FilterContext(ctx), process); err != nil {
 				r.errChan <- errMeta{err: err, source: process}
 				success = false
@@ -317,23 +366,38 @@ func (r *runner) runFinalizers(ctx context.Context, beforeIndex int) bool {
 		}
 	}
 
-	return r.unwindInitializers(ctx, r.processes.NumInitializers()) && success
+	if n := r.processes.NumInitializerPriorities(); n > 0 {
+		if !r.unwindInitializers(ctx, n-1, len(r.processes.GetInitializersAtPriorityIndex(n-1))) {
+			return false
+		}
+	}
+
+	return success
 }
 
-func (r *runner) unwindInitializers(ctx context.Context, beforeIndex int) bool {
+func (r *runner) unwindInitializers(ctx context.Context, fromPriorityIndex, fromIndexWithinPriority int) bool {
 	success := true
-	initializers := r.processes.GetInitializers()
+	for i := fromPriorityIndex; i >= 0; i-- {
+		initializers := r.processes.GetInitializersAtPriorityIndex(i)
 
-	for i := beforeIndex - 1; i >= 0; i-- {
-		if err := r.finalizeWithTimeout(initializers[i].FilterContext(ctx), initializers[i]); err != nil {
-			// Parallel initializers may return multiple errors, so
-			// we return all of them here. This check if asymmetric
-			// as there is no equivalent for processes.
-			for _, err := range coerceToSet(err, initializers[i]) {
-				r.errChan <- err
+		k := len(initializers)
+		if i == fromPriorityIndex {
+			k = fromIndexWithinPriority
+		}
+
+		for i := k - 1; i >= 0; i-- {
+			initializer := initializers[i]
+
+			if err := r.finalizeWithTimeout(initializer.FilterContext(ctx), initializer); err != nil {
+				// Parallel initializers may return multiple errors, so
+				// we return all of them here. This check if asymmetric
+				// as there is no equivalent for processes.
+				for _, err := range coerceToSet(err, initializer) {
+					r.errChan <- err
+				}
+
+				success = false
 			}
-
-			success = false
 		}
 	}
 
@@ -355,7 +419,7 @@ func (r *runner) runProcesses(ctx context.Context) bool {
 
 	success := true
 	index := 0
-	for ; index < r.processes.NumPriorities(); index++ {
+	for ; index < r.processes.NumProcessPriorities(); index++ {
 		if !r.initProcessesAtPriorityIndex(ctx, index) {
 			success = false
 			break
@@ -391,7 +455,7 @@ func (r *runner) runProcesses(ctx context.Context) bool {
 // Injection
 
 func (r *runner) injectProcesses() bool {
-	for i := 0; i < r.processes.NumPriorities(); i++ {
+	for i := 0; i < r.processes.NumProcessPriorities(); i++ {
 		for _, process := range r.processes.GetProcessesAtPriorityIndex(i) {
 			if err := r.inject(process); err != nil {
 				r.errChan <- errMeta{err: err, source: process}
@@ -440,14 +504,32 @@ func inject(injectable namedInjectable, services service.ServiceContainer, logge
 func (r *runner) initProcessesAtPriorityIndex(ctx context.Context, index int) bool {
 	r.logger.Info("Initializing processes at priority index %d", index)
 
-	for _, process := range r.processes.GetProcessesAtPriorityIndex(index) {
-		if err := r.initWithTimeout(process.FilterContext(ctx), process); err != nil {
-			r.errChan <- errMeta{err: err, source: process}
-			return false
-		}
+	var wg sync.WaitGroup
+	processes := r.processes.GetProcessesAtPriorityIndex(index)
+	errChan := make(chan errMeta, len(processes))
+
+	for _, process := range processes {
+		wg.Add(1)
+
+		go func(process *ProcessMeta) {
+			defer wg.Done()
+
+			if err := r.initWithTimeout(process.FilterContext(ctx), process); err != nil {
+				errChan <- errMeta{err: err, source: process}
+			}
+		}(process)
 	}
 
-	return true
+	wg.Wait()
+	close(errChan)
+
+	success := true
+	for err := range errChan {
+		r.errChan <- err
+		success = false
+	}
+
+	return success
 }
 
 func (r *runner) initWithTimeout(ctx context.Context, initializer namedInitializer) error {

@@ -9,7 +9,7 @@ type errMeta struct {
 type errMetaSet []errMeta
 
 func (set errMetaSet) Error() string {
-	return "<multiple errors from process group>"
+	return "<multiple errors from group>"
 }
 
 func coerceToSet(err error, source namedInitializer) errMetaSet {

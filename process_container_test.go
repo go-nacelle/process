@@ -4,52 +4,67 @@ import (
 	"context"
 	"fmt"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestProcessContainerInitializers(t *testing.T) {
-	i1 := InitializerFunc(func(ctx context.Context) error { return fmt.Errorf("a") })
-	i2 := InitializerFunc(func(ctx context.Context) error { return fmt.Errorf("b") })
-	i3 := InitializerFunc(func(ctx context.Context) error { return fmt.Errorf("c") })
-
 	c := NewProcessContainer()
-	c.RegisterInitializer(i1)
-	c.RegisterInitializer(i2, WithInitializerName("b"))
-	c.RegisterInitializer(i3, WithInitializerName("c"), WithInitializerTimeout(time.Minute*2))
+	c.RegisterInitializer(InitializerFunc(func(ctx context.Context) error { return fmt.Errorf("a") }))
+	c.RegisterInitializer(InitializerFunc(func(ctx context.Context) error { return fmt.Errorf("b") }), WithInitializerName("b"), WithInitializerPriority(5))
+	c.RegisterInitializer(InitializerFunc(func(ctx context.Context) error { return fmt.Errorf("c") }), WithInitializerName("c"), WithInitializerPriority(2))
+	c.RegisterInitializer(InitializerFunc(func(ctx context.Context) error { return fmt.Errorf("d") }), WithInitializerName("d"), WithInitializerPriority(3))
+	c.RegisterInitializer(InitializerFunc(func(ctx context.Context) error { return fmt.Errorf("e") }), WithInitializerName("e"), WithInitializerPriority(2))
+	c.RegisterInitializer(InitializerFunc(func(ctx context.Context) error { return fmt.Errorf("f") }), WithInitializerName("f"))
 
-	initializers := c.GetInitializers()
-	require.Len(t, initializers, 3)
+	require.Equal(t, 6, c.NumInitializers())
+	require.Equal(t, 4, c.NumInitializerPriorities())
 
-	// Test names
-	assert.Equal(t, "<unnamed>", initializers[0].Name())
-	assert.Equal(t, "b", initializers[1].Name())
-	assert.Equal(t, "c", initializers[2].Name())
+	p1 := c.GetInitializersAtPriorityIndex(0)
+	p2 := c.GetInitializersAtPriorityIndex(1)
+	p3 := c.GetInitializersAtPriorityIndex(2)
+	p4 := c.GetInitializersAtPriorityIndex(3)
 
-	// Test timeout
-	assert.Equal(t, time.Second*0, initializers[0].InitTimeout())
-	assert.Equal(t, time.Second*0, initializers[1].InitTimeout())
-	assert.Equal(t, time.Minute*2, initializers[2].InitTimeout())
+	require.Len(t, p1, 2)
+	require.Len(t, p2, 2)
+	require.Len(t, p3, 1)
+	require.Len(t, p4, 1)
+
+	// Test priorities
+	assert.Equal(t, 0, p1[0].priority)
+	assert.Equal(t, 2, p2[0].priority)
+	assert.Equal(t, 3, p3[0].priority)
+	assert.Equal(t, 5, p4[0].priority)
+
+	// Test names + order
+	assert.Equal(t, "<unnamed>", p1[0].Name())
+	assert.Equal(t, "f", p1[1].Name())
+	assert.Equal(t, "c", p2[0].Name())
+	assert.Equal(t, "e", p2[1].Name())
+	assert.Equal(t, "d", p3[0].Name())
+	assert.Equal(t, "b", p4[0].Name())
 
 	// Test inner function
-	assert.EqualError(t, initializers[0].Initializer.Init(context.Background()), "a")
-	assert.EqualError(t, initializers[1].Initializer.Init(context.Background()), "b")
-	assert.EqualError(t, initializers[2].Initializer.Init(context.Background()), "c")
+	assert.EqualError(t, p1[0].Initializer.Init(context.Background()), "a")
+	assert.EqualError(t, p1[1].Initializer.Init(context.Background()), "f")
+	assert.EqualError(t, p2[0].Initializer.Init(context.Background()), "c")
+	assert.EqualError(t, p2[1].Initializer.Init(context.Background()), "e")
+	assert.EqualError(t, p3[0].Initializer.Init(context.Background()), "d")
+	assert.EqualError(t, p4[0].Initializer.Init(context.Background()), "b")
 }
 
 func TestProcessContainerProcesses(t *testing.T) {
 	c := NewProcessContainer()
 	c.RegisterProcess(newInitFailProcess("a"))
-	c.RegisterProcess(newInitFailProcess("b"), WithProcessName("b"), WithPriority(5))
-	c.RegisterProcess(newInitFailProcess("c"), WithProcessName("c"), WithPriority(2))
-	c.RegisterProcess(newInitFailProcess("d"), WithProcessName("d"), WithPriority(3))
-	c.RegisterProcess(newInitFailProcess("e"), WithProcessName("e"), WithPriority(2))
+	c.RegisterProcess(newInitFailProcess("b"), WithProcessName("b"), WithProcessPriority(5))
+	c.RegisterProcess(newInitFailProcess("c"), WithProcessName("c"), WithProcessPriority(2))
+	c.RegisterProcess(newInitFailProcess("d"), WithProcessName("d"), WithProcessPriority(3))
+	c.RegisterProcess(newInitFailProcess("e"), WithProcessName("e"), WithProcessPriority(2))
 	c.RegisterProcess(newInitFailProcess("f"), WithProcessName("f"))
 
 	require.Equal(t, 6, c.NumProcesses())
-	require.Equal(t, 4, c.NumPriorities())
+	require.Equal(t, 4, c.NumProcessPriorities())
 
 	p1 := c.GetProcessesAtPriorityIndex(0)
 	p2 := c.GetProcessesAtPriorityIndex(1)

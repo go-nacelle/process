@@ -14,6 +14,7 @@ type InitializerMeta struct {
 	contextFilter   func(ctx context.Context) context.Context
 	name            string
 	logFields       log.LogFields
+	priority        int
 	initTimeout     time.Duration
 	finalizeTimeout time.Duration
 }
