@@ -11,19 +11,23 @@ import (
 // interface (from the package github.com/go-nacelle/process) used for unit
 // testing.
 type MockProcessContainer struct {
-	// GetInitializersFunc is an instance of a mock function object
-	// controlling the behavior of the method GetInitializers.
-	GetInitializersFunc *ProcessContainerGetInitializersFunc
+	// GetInitializersAtPriorityIndexFunc is an instance of a mock function
+	// object controlling the behavior of the method
+	// GetInitializersAtPriorityIndex.
+	GetInitializersAtPriorityIndexFunc *ProcessContainerGetInitializersAtPriorityIndexFunc
 	// GetProcessesAtPriorityIndexFunc is an instance of a mock function
 	// object controlling the behavior of the method
 	// GetProcessesAtPriorityIndex.
 	GetProcessesAtPriorityIndexFunc *ProcessContainerGetProcessesAtPriorityIndexFunc
+	// NumInitializerPrioritiesFunc is an instance of a mock function object
+	// controlling the behavior of the method NumInitializerPriorities.
+	NumInitializerPrioritiesFunc *ProcessContainerNumInitializerPrioritiesFunc
 	// NumInitializersFunc is an instance of a mock function object
 	// controlling the behavior of the method NumInitializers.
 	NumInitializersFunc *ProcessContainerNumInitializersFunc
-	// NumPrioritiesFunc is an instance of a mock function object
-	// controlling the behavior of the method NumPriorities.
-	NumPrioritiesFunc *ProcessContainerNumPrioritiesFunc
+	// NumProcessPrioritiesFunc is an instance of a mock function object
+	// controlling the behavior of the method NumProcessPriorities.
+	NumProcessPrioritiesFunc *ProcessContainerNumProcessPrioritiesFunc
 	// NumProcessesFunc is an instance of a mock function object controlling
 	// the behavior of the method NumProcesses.
 	NumProcessesFunc *ProcessContainerNumProcessesFunc
@@ -40,8 +44,8 @@ type MockProcessContainer struct {
 // overwritten.
 func NewMockProcessContainer() *MockProcessContainer {
 	return &MockProcessContainer{
-		GetInitializersFunc: &ProcessContainerGetInitializersFunc{
-			defaultHook: func() []*process.InitializerMeta {
+		GetInitializersAtPriorityIndexFunc: &ProcessContainerGetInitializersAtPriorityIndexFunc{
+			defaultHook: func(int) []*process.InitializerMeta {
 				return nil
 			},
 		},
@@ -50,12 +54,17 @@ func NewMockProcessContainer() *MockProcessContainer {
 				return nil
 			},
 		},
+		NumInitializerPrioritiesFunc: &ProcessContainerNumInitializerPrioritiesFunc{
+			defaultHook: func() int {
+				return 0
+			},
+		},
 		NumInitializersFunc: &ProcessContainerNumInitializersFunc{
 			defaultHook: func() int {
 				return 0
 			},
 		},
-		NumPrioritiesFunc: &ProcessContainerNumPrioritiesFunc{
+		NumProcessPrioritiesFunc: &ProcessContainerNumProcessPrioritiesFunc{
 			defaultHook: func() int {
 				return 0
 			},
@@ -83,17 +92,20 @@ func NewMockProcessContainer() *MockProcessContainer {
 // implementation, unless overwritten.
 func NewMockProcessContainerFrom(i process.ProcessContainer) *MockProcessContainer {
 	return &MockProcessContainer{
-		GetInitializersFunc: &ProcessContainerGetInitializersFunc{
-			defaultHook: i.GetInitializers,
+		GetInitializersAtPriorityIndexFunc: &ProcessContainerGetInitializersAtPriorityIndexFunc{
+			defaultHook: i.GetInitializersAtPriorityIndex,
 		},
 		GetProcessesAtPriorityIndexFunc: &ProcessContainerGetProcessesAtPriorityIndexFunc{
 			defaultHook: i.GetProcessesAtPriorityIndex,
 		},
+		NumInitializerPrioritiesFunc: &ProcessContainerNumInitializerPrioritiesFunc{
+			defaultHook: i.NumInitializerPriorities,
+		},
 		NumInitializersFunc: &ProcessContainerNumInitializersFunc{
 			defaultHook: i.NumInitializers,
 		},
-		NumPrioritiesFunc: &ProcessContainerNumPrioritiesFunc{
-			defaultHook: i.NumPriorities,
+		NumProcessPrioritiesFunc: &ProcessContainerNumProcessPrioritiesFunc{
+			defaultHook: i.NumProcessPriorities,
 		},
 		NumProcessesFunc: &ProcessContainerNumProcessesFunc{
 			defaultHook: i.NumProcesses,
@@ -107,37 +119,37 @@ func NewMockProcessContainerFrom(i process.ProcessContainer) *MockProcessContain
 	}
 }
 
-// ProcessContainerGetInitializersFunc describes the behavior when the
-// GetInitializers method of the parent MockProcessContainer instance is
-// invoked.
-type ProcessContainerGetInitializersFunc struct {
-	defaultHook func() []*process.InitializerMeta
-	hooks       []func() []*process.InitializerMeta
-	history     []ProcessContainerGetInitializersFuncCall
+// ProcessContainerGetInitializersAtPriorityIndexFunc describes the behavior
+// when the GetInitializersAtPriorityIndex method of the parent
+// MockProcessContainer instance is invoked.
+type ProcessContainerGetInitializersAtPriorityIndexFunc struct {
+	defaultHook func(int) []*process.InitializerMeta
+	hooks       []func(int) []*process.InitializerMeta
+	history     []ProcessContainerGetInitializersAtPriorityIndexFuncCall
 	mutex       sync.Mutex
 }
 
-// GetInitializers delegates to the next hook function in the queue and
-// stores the parameter and result values of this invocation.
-func (m *MockProcessContainer) GetInitializers() []*process.InitializerMeta {
-	r0 := m.GetInitializersFunc.nextHook()()
-	m.GetInitializersFunc.appendCall(ProcessContainerGetInitializersFuncCall{r0})
+// GetInitializersAtPriorityIndex delegates to the next hook function in the
+// queue and stores the parameter and result values of this invocation.
+func (m *MockProcessContainer) GetInitializersAtPriorityIndex(v0 int) []*process.InitializerMeta {
+	r0 := m.GetInitializersAtPriorityIndexFunc.nextHook()(v0)
+	m.GetInitializersAtPriorityIndexFunc.appendCall(ProcessContainerGetInitializersAtPriorityIndexFuncCall{v0, r0})
 	return r0
 }
 
-// SetDefaultHook sets function that is called when the GetInitializers
-// method of the parent MockProcessContainer instance is invoked and the
-// hook queue is empty.
-func (f *ProcessContainerGetInitializersFunc) SetDefaultHook(hook func() []*process.InitializerMeta) {
+// SetDefaultHook sets function that is called when the
+// GetInitializersAtPriorityIndex method of the parent MockProcessContainer
+// instance is invoked and the hook queue is empty.
+func (f *ProcessContainerGetInitializersAtPriorityIndexFunc) SetDefaultHook(hook func(int) []*process.InitializerMeta) {
 	f.defaultHook = hook
 }
 
 // PushHook adds a function to the end of hook queue. Each invocation of the
-// GetInitializers method of the parent MockProcessContainer instance
-// invokes the hook at the front of the queue and discards it. After the
-// queue is empty, the default hook function is invoked for any future
-// action.
-func (f *ProcessContainerGetInitializersFunc) PushHook(hook func() []*process.InitializerMeta) {
+// GetInitializersAtPriorityIndex method of the parent MockProcessContainer
+// instance invokes the hook at the front of the queue and discards it.
+// After the queue is empty, the default hook function is invoked for any
+// future action.
+func (f *ProcessContainerGetInitializersAtPriorityIndexFunc) PushHook(hook func(int) []*process.InitializerMeta) {
 	f.mutex.Lock()
 	f.hooks = append(f.hooks, hook)
 	f.mutex.Unlock()
@@ -145,21 +157,21 @@ func (f *ProcessContainerGetInitializersFunc) PushHook(hook func() []*process.In
 
 // SetDefaultReturn calls SetDefaultDefaultHook with a function that returns
 // the given values.
-func (f *ProcessContainerGetInitializersFunc) SetDefaultReturn(r0 []*process.InitializerMeta) {
-	f.SetDefaultHook(func() []*process.InitializerMeta {
+func (f *ProcessContainerGetInitializersAtPriorityIndexFunc) SetDefaultReturn(r0 []*process.InitializerMeta) {
+	f.SetDefaultHook(func(int) []*process.InitializerMeta {
 		return r0
 	})
 }
 
 // PushReturn calls PushDefaultHook with a function that returns the given
 // values.
-func (f *ProcessContainerGetInitializersFunc) PushReturn(r0 []*process.InitializerMeta) {
-	f.PushHook(func() []*process.InitializerMeta {
+func (f *ProcessContainerGetInitializersAtPriorityIndexFunc) PushReturn(r0 []*process.InitializerMeta) {
+	f.PushHook(func(int) []*process.InitializerMeta {
 		return r0
 	})
 }
 
-func (f *ProcessContainerGetInitializersFunc) nextHook() func() []*process.InitializerMeta {
+func (f *ProcessContainerGetInitializersAtPriorityIndexFunc) nextHook() func(int) []*process.InitializerMeta {
 	f.mutex.Lock()
 	defer f.mutex.Unlock()
 
@@ -172,27 +184,31 @@ func (f *ProcessContainerGetInitializersFunc) nextHook() func() []*process.Initi
 	return hook
 }
 
-func (f *ProcessContainerGetInitializersFunc) appendCall(r0 ProcessContainerGetInitializersFuncCall) {
+func (f *ProcessContainerGetInitializersAtPriorityIndexFunc) appendCall(r0 ProcessContainerGetInitializersAtPriorityIndexFuncCall) {
 	f.mutex.Lock()
 	f.history = append(f.history, r0)
 	f.mutex.Unlock()
 }
 
-// History returns a sequence of ProcessContainerGetInitializersFuncCall
-// objects describing the invocations of this function.
-func (f *ProcessContainerGetInitializersFunc) History() []ProcessContainerGetInitializersFuncCall {
+// History returns a sequence of
+// ProcessContainerGetInitializersAtPriorityIndexFuncCall objects describing
+// the invocations of this function.
+func (f *ProcessContainerGetInitializersAtPriorityIndexFunc) History() []ProcessContainerGetInitializersAtPriorityIndexFuncCall {
 	f.mutex.Lock()
-	history := make([]ProcessContainerGetInitializersFuncCall, len(f.history))
+	history := make([]ProcessContainerGetInitializersAtPriorityIndexFuncCall, len(f.history))
 	copy(history, f.history)
 	f.mutex.Unlock()
 
 	return history
 }
 
-// ProcessContainerGetInitializersFuncCall is an object that describes an
-// invocation of method GetInitializers on an instance of
-// MockProcessContainer.
-type ProcessContainerGetInitializersFuncCall struct {
+// ProcessContainerGetInitializersAtPriorityIndexFuncCall is an object that
+// describes an invocation of method GetInitializersAtPriorityIndex on an
+// instance of MockProcessContainer.
+type ProcessContainerGetInitializersAtPriorityIndexFuncCall struct {
+	// Arg0 is the value of the 1st argument passed to this method
+	// invocation.
+	Arg0 int
 	// Result0 is the value of the 1st result returned from this method
 	// invocation.
 	Result0 []*process.InitializerMeta
@@ -200,13 +216,13 @@ type ProcessContainerGetInitializersFuncCall struct {
 
 // Args returns an interface slice containing the arguments of this
 // invocation.
-func (c ProcessContainerGetInitializersFuncCall) Args() []interface{} {
-	return []interface{}{}
+func (c ProcessContainerGetInitializersAtPriorityIndexFuncCall) Args() []interface{} {
+	return []interface{}{c.Arg0}
 }
 
 // Results returns an interface slice containing the results of this
 // invocation.
-func (c ProcessContainerGetInitializersFuncCall) Results() []interface{} {
+func (c ProcessContainerGetInitializersAtPriorityIndexFuncCall) Results() []interface{} {
 	return []interface{}{c.Result0}
 }
 
@@ -317,6 +333,110 @@ func (c ProcessContainerGetProcessesAtPriorityIndexFuncCall) Results() []interfa
 	return []interface{}{c.Result0}
 }
 
+// ProcessContainerNumInitializerPrioritiesFunc describes the behavior when
+// the NumInitializerPriorities method of the parent MockProcessContainer
+// instance is invoked.
+type ProcessContainerNumInitializerPrioritiesFunc struct {
+	defaultHook func() int
+	hooks       []func() int
+	history     []ProcessContainerNumInitializerPrioritiesFuncCall
+	mutex       sync.Mutex
+}
+
+// NumInitializerPriorities delegates to the next hook function in the queue
+// and stores the parameter and result values of this invocation.
+func (m *MockProcessContainer) NumInitializerPriorities() int {
+	r0 := m.NumInitializerPrioritiesFunc.nextHook()()
+	m.NumInitializerPrioritiesFunc.appendCall(ProcessContainerNumInitializerPrioritiesFuncCall{r0})
+	return r0
+}
+
+// SetDefaultHook sets function that is called when the
+// NumInitializerPriorities method of the parent MockProcessContainer
+// instance is invoked and the hook queue is empty.
+func (f *ProcessContainerNumInitializerPrioritiesFunc) SetDefaultHook(hook func() int) {
+	f.defaultHook = hook
+}
+
+// PushHook adds a function to the end of hook queue. Each invocation of the
+// NumInitializerPriorities method of the parent MockProcessContainer
+// instance invokes the hook at the front of the queue and discards it.
+// After the queue is empty, the default hook function is invoked for any
+// future action.
+func (f *ProcessContainerNumInitializerPrioritiesFunc) PushHook(hook func() int) {
+	f.mutex.Lock()
+	f.hooks = append(f.hooks, hook)
+	f.mutex.Unlock()
+}
+
+// SetDefaultReturn calls SetDefaultDefaultHook with a function that returns
+// the given values.
+func (f *ProcessContainerNumInitializerPrioritiesFunc) SetDefaultReturn(r0 int) {
+	f.SetDefaultHook(func() int {
+		return r0
+	})
+}
+
+// PushReturn calls PushDefaultHook with a function that returns the given
+// values.
+func (f *ProcessContainerNumInitializerPrioritiesFunc) PushReturn(r0 int) {
+	f.PushHook(func() int {
+		return r0
+	})
+}
+
+func (f *ProcessContainerNumInitializerPrioritiesFunc) nextHook() func() int {
+	f.mutex.Lock()
+	defer f.mutex.Unlock()
+
+	if len(f.hooks) == 0 {
+		return f.defaultHook
+	}
+
+	hook := f.hooks[0]
+	f.hooks = f.hooks[1:]
+	return hook
+}
+
+func (f *ProcessContainerNumInitializerPrioritiesFunc) appendCall(r0 ProcessContainerNumInitializerPrioritiesFuncCall) {
+	f.mutex.Lock()
+	f.history = append(f.history, r0)
+	f.mutex.Unlock()
+}
+
+// History returns a sequence of
+// ProcessContainerNumInitializerPrioritiesFuncCall objects describing the
+// invocations of this function.
+func (f *ProcessContainerNumInitializerPrioritiesFunc) History() []ProcessContainerNumInitializerPrioritiesFuncCall {
+	f.mutex.Lock()
+	history := make([]ProcessContainerNumInitializerPrioritiesFuncCall, len(f.history))
+	copy(history, f.history)
+	f.mutex.Unlock()
+
+	return history
+}
+
+// ProcessContainerNumInitializerPrioritiesFuncCall is an object that
+// describes an invocation of method NumInitializerPriorities on an instance
+// of MockProcessContainer.
+type ProcessContainerNumInitializerPrioritiesFuncCall struct {
+	// Result0 is the value of the 1st result returned from this method
+	// invocation.
+	Result0 int
+}
+
+// Args returns an interface slice containing the arguments of this
+// invocation.
+func (c ProcessContainerNumInitializerPrioritiesFuncCall) Args() []interface{} {
+	return []interface{}{}
+}
+
+// Results returns an interface slice containing the results of this
+// invocation.
+func (c ProcessContainerNumInitializerPrioritiesFuncCall) Results() []interface{} {
+	return []interface{}{c.Result0}
+}
+
 // ProcessContainerNumInitializersFunc describes the behavior when the
 // NumInitializers method of the parent MockProcessContainer instance is
 // invoked.
@@ -420,36 +540,37 @@ func (c ProcessContainerNumInitializersFuncCall) Results() []interface{} {
 	return []interface{}{c.Result0}
 }
 
-// ProcessContainerNumPrioritiesFunc describes the behavior when the
-// NumPriorities method of the parent MockProcessContainer instance is
-// invoked.
-type ProcessContainerNumPrioritiesFunc struct {
+// ProcessContainerNumProcessPrioritiesFunc describes the behavior when the
+// NumProcessPriorities method of the parent MockProcessContainer instance
+// is invoked.
+type ProcessContainerNumProcessPrioritiesFunc struct {
 	defaultHook func() int
 	hooks       []func() int
-	history     []ProcessContainerNumPrioritiesFuncCall
+	history     []ProcessContainerNumProcessPrioritiesFuncCall
 	mutex       sync.Mutex
 }
 
-// NumPriorities delegates to the next hook function in the queue and stores
-// the parameter and result values of this invocation.
-func (m *MockProcessContainer) NumPriorities() int {
-	r0 := m.NumPrioritiesFunc.nextHook()()
-	m.NumPrioritiesFunc.appendCall(ProcessContainerNumPrioritiesFuncCall{r0})
+// NumProcessPriorities delegates to the next hook function in the queue and
+// stores the parameter and result values of this invocation.
+func (m *MockProcessContainer) NumProcessPriorities() int {
+	r0 := m.NumProcessPrioritiesFunc.nextHook()()
+	m.NumProcessPrioritiesFunc.appendCall(ProcessContainerNumProcessPrioritiesFuncCall{r0})
 	return r0
 }
 
-// SetDefaultHook sets function that is called when the NumPriorities method
-// of the parent MockProcessContainer instance is invoked and the hook queue
-// is empty.
-func (f *ProcessContainerNumPrioritiesFunc) SetDefaultHook(hook func() int) {
+// SetDefaultHook sets function that is called when the NumProcessPriorities
+// method of the parent MockProcessContainer instance is invoked and the
+// hook queue is empty.
+func (f *ProcessContainerNumProcessPrioritiesFunc) SetDefaultHook(hook func() int) {
 	f.defaultHook = hook
 }
 
 // PushHook adds a function to the end of hook queue. Each invocation of the
-// NumPriorities method of the parent MockProcessContainer instance invokes
-// the hook at the front of the queue and discards it. After the queue is
-// empty, the default hook function is invoked for any future action.
-func (f *ProcessContainerNumPrioritiesFunc) PushHook(hook func() int) {
+// NumProcessPriorities method of the parent MockProcessContainer instance
+// invokes the hook at the front of the queue and discards it. After the
+// queue is empty, the default hook function is invoked for any future
+// action.
+func (f *ProcessContainerNumProcessPrioritiesFunc) PushHook(hook func() int) {
 	f.mutex.Lock()
 	f.hooks = append(f.hooks, hook)
 	f.mutex.Unlock()
@@ -457,7 +578,7 @@ func (f *ProcessContainerNumPrioritiesFunc) PushHook(hook func() int) {
 
 // SetDefaultReturn calls SetDefaultDefaultHook with a function that returns
 // the given values.
-func (f *ProcessContainerNumPrioritiesFunc) SetDefaultReturn(r0 int) {
+func (f *ProcessContainerNumProcessPrioritiesFunc) SetDefaultReturn(r0 int) {
 	f.SetDefaultHook(func() int {
 		return r0
 	})
@@ -465,13 +586,13 @@ func (f *ProcessContainerNumPrioritiesFunc) SetDefaultReturn(r0 int) {
 
 // PushReturn calls PushDefaultHook with a function that returns the given
 // values.
-func (f *ProcessContainerNumPrioritiesFunc) PushReturn(r0 int) {
+func (f *ProcessContainerNumProcessPrioritiesFunc) PushReturn(r0 int) {
 	f.PushHook(func() int {
 		return r0
 	})
 }
 
-func (f *ProcessContainerNumPrioritiesFunc) nextHook() func() int {
+func (f *ProcessContainerNumProcessPrioritiesFunc) nextHook() func() int {
 	f.mutex.Lock()
 	defer f.mutex.Unlock()
 
@@ -484,27 +605,28 @@ func (f *ProcessContainerNumPrioritiesFunc) nextHook() func() int {
 	return hook
 }
 
-func (f *ProcessContainerNumPrioritiesFunc) appendCall(r0 ProcessContainerNumPrioritiesFuncCall) {
+func (f *ProcessContainerNumProcessPrioritiesFunc) appendCall(r0 ProcessContainerNumProcessPrioritiesFuncCall) {
 	f.mutex.Lock()
 	f.history = append(f.history, r0)
 	f.mutex.Unlock()
 }
 
-// History returns a sequence of ProcessContainerNumPrioritiesFuncCall
-// objects describing the invocations of this function.
-func (f *ProcessContainerNumPrioritiesFunc) History() []ProcessContainerNumPrioritiesFuncCall {
+// History returns a sequence of
+// ProcessContainerNumProcessPrioritiesFuncCall objects describing the
+// invocations of this function.
+func (f *ProcessContainerNumProcessPrioritiesFunc) History() []ProcessContainerNumProcessPrioritiesFuncCall {
 	f.mutex.Lock()
-	history := make([]ProcessContainerNumPrioritiesFuncCall, len(f.history))
+	history := make([]ProcessContainerNumProcessPrioritiesFuncCall, len(f.history))
 	copy(history, f.history)
 	f.mutex.Unlock()
 
 	return history
 }
 
-// ProcessContainerNumPrioritiesFuncCall is an object that describes an
-// invocation of method NumPriorities on an instance of
+// ProcessContainerNumProcessPrioritiesFuncCall is an object that describes
+// an invocation of method NumProcessPriorities on an instance of
 // MockProcessContainer.
-type ProcessContainerNumPrioritiesFuncCall struct {
+type ProcessContainerNumProcessPrioritiesFuncCall struct {
 	// Result0 is the value of the 1st result returned from this method
 	// invocation.
 	Result0 int
@@ -512,13 +634,13 @@ type ProcessContainerNumPrioritiesFuncCall struct {
 
 // Args returns an interface slice containing the arguments of this
 // invocation.
-func (c ProcessContainerNumPrioritiesFuncCall) Args() []interface{} {
+func (c ProcessContainerNumProcessPrioritiesFuncCall) Args() []interface{} {
 	return []interface{}{}
 }
 
 // Results returns an interface slice containing the results of this
 // invocation.
-func (c ProcessContainerNumPrioritiesFuncCall) Results() []interface{} {
+func (c ProcessContainerNumProcessPrioritiesFuncCall) Results() []interface{} {
 	return []interface{}{c.Result0}
 }
 
