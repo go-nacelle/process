@@ -13,13 +13,14 @@
 ### Changed
 
 - Added context parameters to `Init`, `Start`, `Stop`, and `Finalize` methods. [#5](https://github.com/go-nacelle/process/pull/5)
+- Changed signature of `InitializerFunc`. [#5](https://github.com/go-nacelle/process/pull/5)
 - Removed config parameters from `Init` methods. [#7](https://github.com/go-nacelle/process/pull/7)
 - Renamed `WithPriority` to `WithProcessPriority`. [#9](https://github.com/go-nacelle/process/pull/9)
 - The `Init` methods of initializers and processors registered at the same priority initializer or process priority are now called concurrently. [#9](https://github.com/go-nacelle/process/pull/9)
 
 ### Removed
 
-- Removed parallel initializer. [#9](https://github.com/go-nacelle/process/pull/9)
+- Removed `ParallelInitializer`. [#9](https://github.com/go-nacelle/process/pull/9)
 
 ## [v1.1.0] - 2020-10-03
 
