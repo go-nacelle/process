@@ -19,13 +19,23 @@ import (
 // it can run the registered initializers and processes and wait for them
 // to exit (cleanly or via shutdown request).
 type Runner interface {
-	// Run takes a loaded configuration object, then starts and monitors
-	// the registered items in the process container. This method returns
-	// a channel of errors. Each error from an initializer or a process will
-	// be sent on this channel (nil errors are ignored). This channel will
-	// close once all processes have exited (or, alternatively, when the
-	// shutdown timeout has elapsed).
-	Run(ctx context.Context, config config.Config) <-chan error
+	// LoadConfig has each initializer and process register the set of
+	// configuration objects they will use through their lifetime. Each
+	// object is populated with the given config configured to use a
+	// particular sourcer.
+	LoadConfig(config config.Config)
+
+	// ValidateConfig will return any errors that occurred during LoadConfig,
+	// or any new errors that occur after callign the PostLoad method on each
+	// configuration object conforming to the PostLoadConfig interface.
+	ValidateConfig(config config.Config) error
+
+	// Run starts and monitors the registered items in the process container.
+	// This method returns a channel of errors. Each error from an initializer
+	// or a process will be sent on this channel (nil errors are ignored). This
+	// channel will close once all processes have exited (or, alternatively, when
+	// the shutdown timeout has elapsed).
+	Run(ctx context.Context) <-chan error
 
 	// Shutdown will begin a graceful exit of all processes. This method
 	// will block until the runner has exited (the channel from the Run
@@ -38,6 +48,7 @@ type runner struct {
 	processes           ProcessContainer
 	services            service.ServiceContainer
 	health              Health
+	configs             []registeredConfig
 	watcher             *processWatcher
 	errChan             chan errMeta
 	outChan             chan error
@@ -47,6 +58,13 @@ type runner struct {
 	startupTimeout      time.Duration
 	shutdownTimeout     time.Duration
 	healthCheckInterval time.Duration
+}
+
+type registeredConfig struct {
+	meta      namedInitializer
+	target    interface{}
+	loadErr   error
+	modifiers []config.TagModifier
 }
 
 var _ Runner = &runner{}
@@ -115,7 +133,69 @@ func NewRunner(
 	return r
 }
 
-func (r *runner) Run(ctx context.Context, config config.Config) <-chan error {
+func (r *runner) LoadConfig(config config.Config) {
+	r.logger.Info("Loading configuration")
+
+	for _, initializer := range r.processes.GetInitializers() {
+		if configurable, ok := initializer.Wrapped().(Configurable); ok {
+			registry := newConfigurationRegistry(config, initializer, func(config registeredConfig) {
+				r.configs = append(r.configs, config)
+			})
+
+			configurable.RegisterConfiguration(registry)
+		}
+	}
+
+	for i := 0; i < r.processes.NumPriorities(); i++ {
+		for _, process := range r.processes.GetProcessesAtPriorityIndex(i) {
+			if configurable, ok := process.Wrapped().(Configurable); ok {
+				registry := newConfigurationRegistry(config, process, func(config registeredConfig) {
+					r.configs = append(r.configs, config)
+				})
+
+				configurable.RegisterConfiguration(registry)
+			}
+		}
+	}
+}
+
+func (r *runner) ValidateConfig(config config.Config) error {
+	r.logger.Info("Validating configuration")
+
+	var errors []error
+	for _, c := range r.configs {
+		logger := r.logger.WithFields(c.meta.LogFields())
+
+		if c.loadErr != nil {
+			logger.Error(
+				"Failed to load configuration for %s (%s)",
+				c.meta.Name(),
+				c.loadErr.Error(),
+			)
+
+			errors = append(errors, c.loadErr)
+			continue
+		}
+
+		if err := config.PostLoad(c.target); err != nil {
+			logger.Error(
+				"PostLoad failed for configuration target in %s (%s)",
+				c.meta.Name(),
+				err.Error(),
+			)
+
+			errors = append(errors, err)
+		}
+	}
+
+	if len(errors) != 0 {
+		return fmt.Errorf("configuration validation failed: %d errors", len(errors))
+	}
+
+	return nil
+}
+
+func (r *runner) Run(ctx context.Context) <-chan error {
 	// Start watching things before running anything. This ensures that
 	// we start listening for shutdown requests and intercepted signals
 	// as soon as anything starts being initialized.
@@ -125,7 +205,7 @@ func (r *runner) Run(ctx context.Context, config config.Config) <-chan error {
 	// Run the initializers in sequence. If there were no errors, begin
 	// initializing and running processes in priority/registration order.
 
-	_ = r.runInitializers(ctx, config) && r.runProcesses(ctx, config)
+	_ = r.runInitializers(ctx) && r.runProcesses(ctx)
 	return r.outChan
 }
 
@@ -143,7 +223,7 @@ func (r *runner) Shutdown(timeout time.Duration) error {
 //
 // Running and Watching
 
-func (r *runner) runInitializers(ctx context.Context, config config.Config) bool {
+func (r *runner) runInitializers(ctx context.Context) bool {
 	r.logger.Info("Running initializers")
 
 	for i, initializer := range r.processes.GetInitializers() {
@@ -154,7 +234,7 @@ func (r *runner) runInitializers(ctx context.Context, config config.Config) bool
 			return false
 		}
 
-		if err := r.initWithTimeout(initializer.FilterContext(ctx), initializer, config); err != nil {
+		if err := r.initWithTimeout(initializer.FilterContext(ctx), initializer); err != nil {
 			_ = r.unwindInitializers(ctx, i)
 			// Parallel initializers may return multiple errors, so
 			// we return all of them here. This check if asymmetric
@@ -208,7 +288,7 @@ func (r *runner) unwindInitializers(ctx context.Context, beforeIndex int) bool {
 	return success
 }
 
-func (r *runner) runProcesses(ctx context.Context, config config.Config) bool {
+func (r *runner) runProcesses(ctx context.Context) bool {
 	r.logger.Info("Running processes")
 
 	if !r.injectProcesses() {
@@ -219,12 +299,12 @@ func (r *runner) runProcesses(ctx context.Context, config config.Config) bool {
 	// in sequence. Then, start all processes in a goroutine. If there
 	// is any synchronous error occurs (either due to an Init call
 	// returning a non-nil error, or the watcher has begun shutdown),
-	// stop booting up processes adn simply wait for them to spin down.
+	// stop booting up processes and simply wait for them to spin down.
 
 	success := true
 	index := 0
 	for ; index < r.processes.NumPriorities(); index++ {
-		if !r.initProcessesAtPriorityIndex(ctx, config, index) {
+		if !r.initProcessesAtPriorityIndex(ctx, index) {
 			success = false
 			break
 		}
@@ -305,11 +385,11 @@ func inject(injectable namedInjectable, services service.ServiceContainer, logge
 //
 // Initialization
 
-func (r *runner) initProcessesAtPriorityIndex(ctx context.Context, config config.Config, index int) bool {
+func (r *runner) initProcessesAtPriorityIndex(ctx context.Context, index int) bool {
 	r.logger.Info("Initializing processes at priority index %d", index)
 
 	for _, process := range r.processes.GetProcessesAtPriorityIndex(index) {
-		if err := r.initWithTimeout(process.FilterContext(ctx), process, config); err != nil {
+		if err := r.initWithTimeout(process.FilterContext(ctx), process); err != nil {
 			r.errChan <- errMeta{err: err, source: process}
 			return false
 		}
@@ -318,14 +398,14 @@ func (r *runner) initProcessesAtPriorityIndex(ctx context.Context, config config
 	return true
 }
 
-func (r *runner) initWithTimeout(ctx context.Context, initializer namedInitializer, config config.Config) error {
+func (r *runner) initWithTimeout(ctx context.Context, initializer namedInitializer) error {
 	// Run the initializer in a goroutine. We don't want to block
 	// on this in case we want to abandon reading from this channel
 	// (timeout or shutdown). This is only true for initializer
 	// methods (will not be true for process Start methods).
 
 	errChan := makeErrChan(func() error {
-		return r.init(ctx, initializer, config)
+		return r.init(ctx, initializer)
 	})
 
 	// Construct a timeout chan for the init (if timeout is set to
@@ -350,10 +430,10 @@ func (r *runner) initWithTimeout(ctx context.Context, initializer namedInitializ
 	}
 }
 
-func (r *runner) init(ctx context.Context, initializer namedInitializer, config config.Config) error {
+func (r *runner) init(ctx context.Context, initializer namedInitializer) error {
 	r.logger.WithFields(initializer.LogFields()).Info("Initializing %s", initializer.Name())
 
-	if err := initializer.Init(ctx, config); err != nil {
+	if err := initializer.Init(ctx); err != nil {
 		if _, ok := err.(errMetaSet); ok {
 			// Pass error sets up unchanged
 			return err

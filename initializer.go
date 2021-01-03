@@ -2,8 +2,6 @@ package process
 
 import (
 	"context"
-
-	"github.com/go-nacelle/config"
 )
 
 // Initializer is an interface that is called once on app
@@ -14,7 +12,7 @@ type Initializer interface {
 	// files from disk, connecting to a remote service,
 	// initializing shared data structures, and inserting
 	// a service into a shared service container.
-	Init(ctx context.Context, config config.Config) error
+	Init(ctx context.Context) error
 }
 
 // Finalizer is an optional extension of an Initializer that
@@ -29,9 +27,9 @@ type Finalizer interface {
 }
 
 // InitializerFunc is a non-struct version of an initializer.
-type InitializerFunc func(ctx context.Context, config config.Config) error
+type InitializerFunc func(ctx context.Context) error
 
 // Init calls the underlying function.
-func (f InitializerFunc) Init(ctx context.Context, config config.Config) error {
-	return f(ctx, config)
+func (f InitializerFunc) Init(ctx context.Context) error {
+	return f(ctx)
 }
