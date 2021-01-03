@@ -10,7 +10,6 @@ import (
 
 	"github.com/derision-test/glock"
 
-	"github.com/go-nacelle/config"
 	"github.com/go-nacelle/log"
 	"github.com/go-nacelle/service"
 )
@@ -19,21 +18,6 @@ import (
 // it can run the registered initializers and processes and wait for them
 // to exit (cleanly or via shutdown request).
 type Runner interface {
-	// LoadConfig has each initializer and process register the set of
-	// configuration objects they will use through their lifetime. Each
-	// object is populated with the given config configured to use a
-	// particular sourcer.
-	LoadConfig(config config.Config)
-
-	// ValidateConfig will return any errors that occurred during LoadConfig,
-	// or any new errors that occur after calling the PostLoad method on each
-	// configuration object conforming to the PostLoadConfig interface.
-	ValidateConfig(config config.Config) error
-
-	// DescribeConfiguration returns a string description of the configuration
-	// targets registered by each registered item in the process container.
-	DescribeConfiguration(config config.Config, additionalConfigurationTargets ...interface{}) (string, error)
-
 	// Run starts and monitors the registered items in the process container.
 	// This method returns a channel of errors. Each error from an initializer
 	// or a process will be sent on this channel (nil errors are ignored). This
@@ -52,7 +36,6 @@ type runner struct {
 	processes           ProcessContainer
 	services            service.ServiceContainer
 	health              Health
-	configs             []registeredConfig
 	watcher             *processWatcher
 	errChan             chan errMeta
 	outChan             chan error
@@ -62,13 +45,6 @@ type runner struct {
 	startupTimeout      time.Duration
 	shutdownTimeout     time.Duration
 	healthCheckInterval time.Duration
-}
-
-type registeredConfig struct {
-	meta      namedInitializer
-	target    interface{}
-	loadErr   error
-	modifiers []config.TagModifier
 }
 
 var _ Runner = &runner{}
@@ -135,118 +111,6 @@ func NewRunner(
 	)
 
 	return r
-}
-
-func (r *runner) LoadConfig(config config.Config) {
-	r.logger.Info("Loading configuration")
-
-	for i := 0; i < r.processes.NumInitializerPriorities(); i++ {
-		for _, initializer := range r.processes.GetInitializersAtPriorityIndex(i) {
-			if configurable, ok := initializer.Wrapped().(Configurable); ok {
-				registry := newConfigurationRegistry(config, initializer, func(config registeredConfig) {
-					r.configs = append(r.configs, config)
-				})
-
-				configurable.RegisterConfiguration(registry)
-			}
-		}
-	}
-
-	for i := 0; i < r.processes.NumProcessPriorities(); i++ {
-		for _, process := range r.processes.GetProcessesAtPriorityIndex(i) {
-			if configurable, ok := process.Wrapped().(Configurable); ok {
-				registry := newConfigurationRegistry(config, process, func(config registeredConfig) {
-					r.configs = append(r.configs, config)
-				})
-
-				configurable.RegisterConfiguration(registry)
-			}
-		}
-	}
-}
-
-func (r *runner) ValidateConfig(config config.Config) error {
-	r.logger.Info("Validating configuration")
-
-	var errors []error
-	for _, c := range r.configs {
-		logger := r.logger.WithFields(c.meta.LogFields())
-
-		if c.loadErr != nil {
-			logger.Error(
-				"Failed to load configuration for %s (%s)",
-				c.meta.Name(),
-				c.loadErr.Error(),
-			)
-
-			errors = append(errors, c.loadErr)
-			continue
-		}
-
-		if err := config.PostLoad(c.target); err != nil {
-			logger.Error(
-				"PostLoad failed for configuration target in %s (%s)",
-				c.meta.Name(),
-				err.Error(),
-			)
-
-			errors = append(errors, err)
-		}
-	}
-
-	if len(errors) != 0 {
-		return fmt.Errorf("configuration validation failed: %d errors", len(errors))
-	}
-
-	return nil
-}
-
-func (r *runner) DescribeConfiguration(config config.Config, additionalConfigurationTargets ...interface{}) (string, error) {
-	var descriptions []string
-	for _, c := range additionalConfigurationTargets {
-		description, err := config.Describe(c)
-		if err != nil {
-			return "", err
-		}
-
-		descriptions = append(descriptions, formatConfigDescription(description)...)
-	}
-
-	for _, c := range r.configs {
-		description, err := config.Describe(c.target, c.modifiers...)
-		if err != nil {
-			return "", err
-		}
-
-		descriptions = append(descriptions, formatConfigDescription(description)...)
-	}
-
-	sort.Strings(descriptions)
-	return strings.Join(descriptions, "\n"), nil
-}
-
-func formatConfigDescription(description *config.StructDescription) []string {
-	var descriptions []string
-	for _, field := range description.Fields {
-		for key, value := range field.TagValues {
-			var parts []string
-			if field.Required {
-				parts = append(parts, "required")
-			}
-			if field.Default != "" {
-				parts = append(parts, fmt.Sprintf("default=%s", field.Default))
-			}
-
-			suffix := ""
-			if len(parts) > 0 {
-				suffix = fmt.Sprintf(" (%s)", strings.Join(parts, "; "))
-			}
-
-			descriptions = append(descriptions, fmt.Sprintf("(%s) %s%s", key, value, suffix))
-		}
-	}
-
-	return descriptions
 }
 
 func (r *runner) Run(ctx context.Context) <-chan error {
