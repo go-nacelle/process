@@ -8,25 +8,32 @@ type ProcessContainer interface {
 	// with the given configuration.
 	RegisterInitializer(Initializer, ...InitializerConfigFunc)
 
+	// NumInitializers returns the number of registered initializers.
+	NumInitializers() int
+
+	// NumInitializer returns the number of distinct registered
+	// initializer priorities.
+	NumInitializerPriorities() int
+
+	// GetProcessesAtPriorityIndex returns a slice of meta objects
+	// wrapping all initializers registered to this priority index,
+	// where zero denotes the lowest priority, one the second
+	// lowest, and so on. The index parameter is not checked for
+	// validity before indexing an internal slice - caller beware.
+	GetInitializersAtPriorityIndex(index int) []*InitializerMeta
+
 	// RegisterProcess adds a process to the container with the
 	// given configuration.
 	RegisterProcess(Process, ...ProcessConfigFunc)
 
-	// NumInitializers returns the number of registered initializers.
-	NumInitializers() int
-
 	// NumProcesses returns the number of registered processes.
 	NumProcesses() int
 
-	// NumPriorities returns the number of distinct registered
+	// NumProcessPriorities returns the number of distinct registered
 	// process priorities.
-	NumPriorities() int
+	NumProcessPriorities() int
 
-	// GetInitializers returns a slice of meta objects wrapping
-	// all registered initializers.
-	GetInitializers() []*InitializerMeta
-
-	// GetProcessesAtPriorityIndex returns  aslice of meta objects
+	// GetProcessesAtPriorityIndex returns a slice of meta objects
 	// wrapping all processes registered to this priority index,
 	// where zero denotes the lowest priority, one the second
 	// lowest, and so on. The index parameter is not checked for
@@ -35,9 +42,10 @@ type ProcessContainer interface {
 }
 
 type container struct {
-	initializers []*InitializerMeta
-	processes    map[int][]*ProcessMeta
-	priorities   []int
+	initializers          map[int][]*InitializerMeta
+	processes             map[int][]*ProcessMeta
+	initializerPriorities []int
+	processPriorities     []int
 }
 
 var _ ProcessContainer = &container{}
@@ -45,9 +53,10 @@ var _ ProcessContainer = &container{}
 // NewProcessContainer creates an empty process container.
 func NewProcessContainer() ProcessContainer {
 	return &container{
-		initializers: []*InitializerMeta{},
-		processes:    map[int][]*ProcessMeta{},
-		priorities:   []int{},
+		initializers:          map[int][]*InitializerMeta{},
+		processes:             map[int][]*ProcessMeta{},
+		initializerPriorities: []int{},
+		processPriorities:     []int{},
 	}
 }
 
@@ -61,7 +70,35 @@ func (c *container) RegisterInitializer(
 		f(meta)
 	}
 
-	c.initializers = append(c.initializers, meta)
+	c.initializers[meta.priority] = append(c.initializers[meta.priority], meta)
+	c.initializerPriorities = c.getInitializerPriorities()
+}
+
+func (c *container) NumInitializers() int {
+	n := 0
+	for _, is := range c.initializers {
+		n += len(is)
+	}
+
+	return n
+}
+
+func (c *container) NumInitializerPriorities() int {
+	return len(c.initializerPriorities)
+}
+
+func (c *container) GetInitializersAtPriorityIndex(index int) []*InitializerMeta {
+	return c.initializers[c.initializerPriorities[index]]
+}
+
+func (c *container) getInitializerPriorities() []int {
+	priorities := []int{}
+	for priority := range c.initializers {
+		priorities = append(priorities, priority)
+	}
+
+	sort.Ints(priorities)
+	return priorities
 }
 
 func (c *container) RegisterProcess(
@@ -75,11 +112,7 @@ func (c *container) RegisterProcess(
 	}
 
 	c.processes[meta.priority] = append(c.processes[meta.priority], meta)
-	c.priorities = c.getPriorities()
-}
-
-func (c *container) NumInitializers() int {
-	return len(c.initializers)
+	c.processPriorities = c.getProcessPriorities()
 }
 
 func (c *container) NumProcesses() int {
@@ -91,19 +124,15 @@ func (c *container) NumProcesses() int {
 	return n
 }
 
-func (c *container) NumPriorities() int {
-	return len(c.priorities)
-}
-
-func (c *container) GetInitializers() []*InitializerMeta {
-	return c.initializers
+func (c *container) NumProcessPriorities() int {
+	return len(c.processPriorities)
 }
 
 func (c *container) GetProcessesAtPriorityIndex(index int) []*ProcessMeta {
-	return c.processes[c.priorities[index]]
+	return c.processes[c.processPriorities[index]]
 }
 
-func (c *container) getPriorities() []int {
+func (c *container) getProcessPriorities() []int {
 	priorities := []int{}
 	for priority := range c.processes {
 		priorities = append(priorities, priority)

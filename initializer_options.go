@@ -27,6 +27,13 @@ func WithInitializerLogFields(fields log.LogFields) InitializerConfigFunc {
 	return func(meta *InitializerMeta) { meta.logFields = fields }
 }
 
+// WithInitializerPriority assigns a priority to an initializer. A initializer with a
+// lower valued priority is initialized before an initializer with a higher valued priority.
+// Two initializers with the same priority may be called concurrently.
+func WithInitializerPriority(priority int) InitializerConfigFunc {
+	return func(meta *InitializerMeta) { meta.priority = priority }
+}
+
 // WithInitializerTimeout sets the time limit for the initializer.
 func WithInitializerTimeout(timeout time.Duration) InitializerConfigFunc {
 	return func(meta *InitializerMeta) { meta.initTimeout = timeout }

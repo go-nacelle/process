@@ -27,10 +27,10 @@ func WithProcessLogFields(fields log.LogFields) ProcessConfigFunc {
 	return func(meta *ProcessMeta) { meta.logFields = fields }
 }
 
-// WithPriority assigns a priority to a process. A process with a lower-valued
-// priority is initialized and started before a process with a higher-valued
-// priority. Two processes with the same priority are started concurrently.
-func WithPriority(priority int) ProcessConfigFunc {
+// WithProcessPriority assigns a priority to a process. A process with a lower
+// valued priority is initialized and started before a process with a higher
+// valued priority. Two processes with the same priority are started concurrently.
+func WithProcessPriority(priority int) ProcessConfigFunc {
 	return func(meta *ProcessMeta) { meta.priority = priority }
 }
 

@@ -31,8 +31,8 @@ func TestRunnerLoadAndValidateConfig(t *testing.T) {
 	processes.RegisterInitializer(i2)
 	processes.RegisterInitializer(i3)
 	processes.RegisterProcess(p1)
-	processes.RegisterProcess(p2, WithPriority(5))
-	processes.RegisterProcess(p3, WithPriority(3))
+	processes.RegisterProcess(p2, WithProcessPriority(5))
+	processes.RegisterProcess(p3, WithProcessPriority(3))
 
 	// Configuration target must be a struct
 	type T struct{ Name string }
@@ -87,8 +87,8 @@ func TestRunnerLoadAndValidateConfigLoadFailure(t *testing.T) {
 	processes.RegisterInitializer(i2)
 	processes.RegisterInitializer(i3)
 	processes.RegisterProcess(p1)
-	processes.RegisterProcess(p2, WithPriority(5))
-	processes.RegisterProcess(p3, WithPriority(3))
+	processes.RegisterProcess(p2, WithProcessPriority(5))
+	processes.RegisterProcess(p3, WithProcessPriority(3))
 
 	// Configuration target must be a struct
 	type T struct{ Name string }
@@ -121,8 +121,8 @@ func TestRunnerLoadAndValidateConfigPostLoadFailure(t *testing.T) {
 	processes.RegisterInitializer(i2)
 	processes.RegisterInitializer(i3)
 	processes.RegisterProcess(p1)
-	processes.RegisterProcess(p2, WithPriority(5))
-	processes.RegisterProcess(p3, WithPriority(3))
+	processes.RegisterProcess(p2, WithProcessPriority(5))
+	processes.RegisterProcess(p3, WithProcessPriority(3))
 
 	// Configuration target must be a struct
 	type T struct{ Name string }
@@ -161,9 +161,9 @@ func TestRunnerRunOrder(t *testing.T) {
 	processes.RegisterInitializer(i2)
 	processes.RegisterInitializer(i3)
 	processes.RegisterProcess(p1)
-	processes.RegisterProcess(p2, WithPriority(5))
-	processes.RegisterProcess(p3, WithPriority(5))
-	processes.RegisterProcess(p4, WithPriority(3))
+	processes.RegisterProcess(p2, WithProcessPriority(5))
+	processes.RegisterProcess(p3, WithProcessPriority(5))
+	processes.RegisterProcess(p4, WithProcessPriority(3))
 	processes.RegisterProcess(p5)
 
 	errChan := make(chan error)
@@ -181,17 +181,17 @@ func TestRunnerRunOrder(t *testing.T) {
 	eventually(t, stringChanReceivesOrdered(init, "a", "b", "c"))
 
 	// Priority index 0
-	eventually(t, stringChanReceivesOrdered(init, "d", "h"))
+	eventually(t, stringChanReceivesUnordered(init, "d", "h"))
 
 	// May start in either order
 	eventually(t, stringChanReceivesUnordered(start, "d", "h"))
 
 	// Priority index 1
-	eventually(t, stringChanReceivesOrdered(init, "g"))
+	eventually(t, stringChanReceivesUnordered(init, "g"))
 	eventually(t, stringChanReceivesUnordered(start, "g"))
 
 	// Priority index 2
-	eventually(t, stringChanReceivesOrdered(init, "e", "f"))
+	eventually(t, stringChanReceivesUnordered(init, "e", "f"))
 
 	// May start in either order
 	eventually(t, stringChanReceivesUnordered(start, "e", "f"))
@@ -237,7 +237,7 @@ func TestRunnerEarlyExit(t *testing.T) {
 		}
 	}()
 
-	eventually(t, stringChanReceivesOrdered(init, "a", "b"))
+	eventually(t, stringChanReceivesUnordered(init, "a", "b"))
 	eventually(t, stringChanReceivesN(start, 2))
 
 	go p2.Stop(context.Background())
@@ -266,7 +266,7 @@ func TestRunnerSilentExit(t *testing.T) {
 
 	go runner.Run(context.Background())
 
-	eventually(t, stringChanReceivesOrdered(init, "a", "b"))
+	eventually(t, stringChanReceivesUnordered(init, "a", "b"))
 	eventually(t, stringChanReceivesN(start, 2))
 
 	go p2.Stop(context.Background())
@@ -481,10 +481,10 @@ func TestRunnerProcessInjectionError(t *testing.T) {
 	processes.RegisterInitializer(i2)
 	processes.RegisterInitializer(i3)
 	processes.RegisterProcess(p1)
-	processes.RegisterProcess(p2, WithPriority(2))
-	processes.RegisterProcess(p3, WithPriority(2), WithProcessName("f"))
-	processes.RegisterProcess(p4, WithPriority(2))
-	processes.RegisterProcess(p5, WithPriority(3))
+	processes.RegisterProcess(p2, WithProcessPriority(2))
+	processes.RegisterProcess(p3, WithProcessPriority(2), WithProcessName("f"))
+	processes.RegisterProcess(p4, WithProcessPriority(2))
+	processes.RegisterProcess(p5, WithProcessPriority(3))
 
 	go func() {
 		defer close(errChan)
@@ -523,7 +523,7 @@ func TestRunnerInitializerInitTimeout(t *testing.T) {
 
 	// Register things
 	processes.RegisterInitializer(i1, WithInitializerName("a"))
-	processes.RegisterInitializer(i2, WithInitializerName("b"), WithInitializerTimeout(time.Minute))
+	processes.RegisterInitializer(i2, WithInitializerName("b"), WithInitializerTimeout(time.Minute), WithInitializerPriority(1))
 
 	go func() {
 		defer close(errChan)
@@ -649,7 +649,7 @@ func TestRunnerProcessInitTimeout(t *testing.T) {
 
 	// Register things
 	processes.RegisterProcess(p1, WithProcessName("a"))
-	processes.RegisterProcess(p2, WithProcessName("b"), WithProcessInitTimeout(time.Minute))
+	processes.RegisterProcess(p2, WithProcessName("b"), WithProcessInitTimeout(time.Minute), WithProcessPriority(1))
 
 	go func() {
 		defer close(errChan)
@@ -659,12 +659,16 @@ func TestRunnerProcessInitTimeout(t *testing.T) {
 		}
 	}()
 
-	// Don't read second value - this blocks i2.Init
+	// Only read lower priority process
 	eventually(t, stringChanReceivesOrdered(init, "a"))
+	eventually(t, stringChanReceivesOrdered(start, "a"))
 
-	// Ensure error / unblocked
+	// Ensure error
 	clock.BlockingAdvance(time.Minute)
 	eventually(t, errorChanReceivesUnordered(errChan, "b did not initialize within timeout"))
+
+	// Ensure unblocked
+	eventually(t, stringChanReceivesOrdered(stop, "a"))
 	eventually(t, errorChanClosed(errChan))
 }
 
@@ -702,7 +706,7 @@ func TestRunnerInitializerError(t *testing.T) {
 
 	// Check run order
 	eventually(t, stringChanReceivesOrdered(init, "a", "b"))
-	eventually(t, stringChanReceivesUnordered(finalize, "a"))
+	eventually(t, stringChanReceivesUnordered(finalize, "a", "b"))
 
 	// Ensure error is encountered
 	eventually(t, errorChanReceivesUnordered(errChan, "failed to initialize b (oops)"))
@@ -738,10 +742,10 @@ func TestRunnerProcessInitError(t *testing.T) {
 	processes.RegisterInitializer(i2)
 	processes.RegisterInitializer(i3)
 	processes.RegisterProcess(p1)
-	processes.RegisterProcess(p2, WithPriority(2))
-	processes.RegisterProcess(p3, WithPriority(2), WithProcessName("f"))
-	processes.RegisterProcess(p4, WithPriority(2))
-	processes.RegisterProcess(p5, WithPriority(3))
+	processes.RegisterProcess(p2, WithProcessPriority(2))
+	processes.RegisterProcess(p3, WithProcessPriority(2), WithProcessName("f"))
+	processes.RegisterProcess(p4, WithProcessPriority(2))
+	processes.RegisterProcess(p5, WithProcessPriority(3))
 
 	p3.initErr = fmt.Errorf("oops")
 
@@ -762,7 +766,7 @@ func TestRunnerProcessInitError(t *testing.T) {
 	eventually(t, stringChanReceivesUnordered(start, "d"))
 
 	// Ensure error is encountered
-	eventually(t, stringChanReceivesOrdered(init, "e", "f"))
+	eventually(t, stringChanReceivesUnordered(init, "e", "f", "g"))
 	eventually(t, errorChanReceivesUnordered(errChan, "failed to initialize f (oops)"))
 	consistently(t, stringChanDoesNotReceive(init))
 
@@ -799,10 +803,10 @@ func TestRunnerProcessStartError(t *testing.T) {
 	processes.RegisterInitializer(i2)
 	processes.RegisterInitializer(i3)
 	processes.RegisterProcess(p1)
-	processes.RegisterProcess(p2, WithPriority(2))
-	processes.RegisterProcess(p3, WithPriority(2), WithProcessName("f"))
-	processes.RegisterProcess(p4, WithPriority(2))
-	processes.RegisterProcess(p5, WithPriority(3), WithProcessName("h"))
+	processes.RegisterProcess(p2, WithProcessPriority(2))
+	processes.RegisterProcess(p3, WithProcessPriority(2), WithProcessName("f"))
+	processes.RegisterProcess(p4, WithProcessPriority(2))
+	processes.RegisterProcess(p5, WithProcessPriority(3), WithProcessName("h"))
 
 	p3.startErr = fmt.Errorf("oops")
 
@@ -820,11 +824,11 @@ func TestRunnerProcessStartError(t *testing.T) {
 	eventually(t, stringChanReceivesOrdered(init, "a", "b", "c"))
 
 	// Lower-priority process
-	eventually(t, stringChanReceivesOrdered(init, "d"))
+	eventually(t, stringChanReceivesUnordered(init, "d"))
 	eventually(t, stringChanReceivesUnordered(start, "d"))
 
 	// Higher-priority processes
-	eventually(t, stringChanReceivesOrdered(init, "e", "f", "g"))
+	eventually(t, stringChanReceivesUnordered(init, "e", "f", "g"))
 	eventually(t, stringChanReceivesUnordered(start, "e", "f", "g"))
 
 	// Shutdown everything that's started
@@ -869,9 +873,9 @@ func TestRunnerProcessStopError(t *testing.T) {
 	processes.RegisterInitializer(i2)
 	processes.RegisterInitializer(i3)
 	processes.RegisterProcess(p1, WithProcessName("d"))
-	processes.RegisterProcess(p2, WithProcessName("e"), WithPriority(5))
-	processes.RegisterProcess(p3, WithProcessName("f"), WithPriority(5))
-	processes.RegisterProcess(p4, WithProcessName("g"), WithPriority(3))
+	processes.RegisterProcess(p2, WithProcessName("e"), WithProcessPriority(5))
+	processes.RegisterProcess(p3, WithProcessName("f"), WithProcessPriority(5))
+	processes.RegisterProcess(p4, WithProcessName("g"), WithProcessPriority(3))
 	processes.RegisterProcess(p5, WithProcessName("h"))
 
 	p1.stopErr = fmt.Errorf("oops x")
@@ -918,9 +922,9 @@ func TestContext(t *testing.T) {
 	p3 := newContextProcess()
 
 	// Register things
-	processes.RegisterProcess(p1, WithPriority(1))
-	processes.RegisterProcess(p2, WithPriority(2))
-	processes.RegisterProcess(p3, WithPriority(3))
+	processes.RegisterProcess(p1, WithProcessPriority(1))
+	processes.RegisterProcess(p2, WithProcessPriority(2))
+	processes.RegisterProcess(p3, WithProcessPriority(3))
 
 	errChan := make(chan error)
 	shutdownChan := make(chan error)
