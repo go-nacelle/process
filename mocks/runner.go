@@ -4,7 +4,6 @@ package mocks
 
 import (
 	"context"
-	config "github.com/go-nacelle/config"
 	process "github.com/go-nacelle/process"
 	"sync"
 	"time"
@@ -13,37 +12,18 @@ import (
 // MockRunner is a mock implementation of the Runner interface (from the
 // package github.com/go-nacelle/process) used for unit testing.
 type MockRunner struct {
-	// DescribeConfigurationFunc is an instance of a mock function object
-	// controlling the behavior of the method DescribeConfiguration.
-	DescribeConfigurationFunc *RunnerDescribeConfigurationFunc
-	// LoadConfigFunc is an instance of a mock function object controlling
-	// the behavior of the method LoadConfig.
-	LoadConfigFunc *RunnerLoadConfigFunc
 	// RunFunc is an instance of a mock function object controlling the
 	// behavior of the method Run.
 	RunFunc *RunnerRunFunc
 	// ShutdownFunc is an instance of a mock function object controlling the
 	// behavior of the method Shutdown.
 	ShutdownFunc *RunnerShutdownFunc
-	// ValidateConfigFunc is an instance of a mock function object
-	// controlling the behavior of the method ValidateConfig.
-	ValidateConfigFunc *RunnerValidateConfigFunc
 }
 
 // NewMockRunner creates a new mock of the Runner interface. All methods
 // return zero values for all results, unless overwritten.
 func NewMockRunner() *MockRunner {
 	return &MockRunner{
-		DescribeConfigurationFunc: &RunnerDescribeConfigurationFunc{
-			defaultHook: func(config.Config, ...interface{}) (string, error) {
-				return "", nil
-			},
-		},
-		LoadConfigFunc: &RunnerLoadConfigFunc{
-			defaultHook: func(config.Config) {
-				return
-			},
-		},
 		RunFunc: &RunnerRunFunc{
 			defaultHook: func(context.Context) <-chan error {
 				return nil
@@ -54,11 +34,6 @@ func NewMockRunner() *MockRunner {
 				return nil
 			},
 		},
-		ValidateConfigFunc: &RunnerValidateConfigFunc{
-			defaultHook: func(config.Config) error {
-				return nil
-			},
-		},
 	}
 }
 
@@ -66,238 +41,13 @@ func NewMockRunner() *MockRunner {
 // methods delegate to the given implementation, unless overwritten.
 func NewMockRunnerFrom(i process.Runner) *MockRunner {
 	return &MockRunner{
-		DescribeConfigurationFunc: &RunnerDescribeConfigurationFunc{
-			defaultHook: i.DescribeConfiguration,
-		},
-		LoadConfigFunc: &RunnerLoadConfigFunc{
-			defaultHook: i.LoadConfig,
-		},
 		RunFunc: &RunnerRunFunc{
 			defaultHook: i.Run,
 		},
 		ShutdownFunc: &RunnerShutdownFunc{
 			defaultHook: i.Shutdown,
 		},
-		ValidateConfigFunc: &RunnerValidateConfigFunc{
-			defaultHook: i.ValidateConfig,
-		},
 	}
-}
-
-// RunnerDescribeConfigurationFunc describes the behavior when the
-// DescribeConfiguration method of the parent MockRunner instance is
-// invoked.
-type RunnerDescribeConfigurationFunc struct {
-	defaultHook func(config.Config, ...interface{}) (string, error)
-	hooks       []func(config.Config, ...interface{}) (string, error)
-	history     []RunnerDescribeConfigurationFuncCall
-	mutex       sync.Mutex
-}
-
-// DescribeConfiguration delegates to the next hook function in the queue
-// and stores the parameter and result values of this invocation.
-func (m *MockRunner) DescribeConfiguration(v0 config.Config, v1 ...interface{}) (string, error) {
-	r0, r1 := m.DescribeConfigurationFunc.nextHook()(v0, v1...)
-	m.DescribeConfigurationFunc.appendCall(RunnerDescribeConfigurationFuncCall{v0, v1, r0, r1})
-	return r0, r1
-}
-
-// SetDefaultHook sets function that is called when the
-// DescribeConfiguration method of the parent MockRunner instance is invoked
-// and the hook queue is empty.
-func (f *RunnerDescribeConfigurationFunc) SetDefaultHook(hook func(config.Config, ...interface{}) (string, error)) {
-	f.defaultHook = hook
-}
-
-// PushHook adds a function to the end of hook queue. Each invocation of the
-// DescribeConfiguration method of the parent MockRunner instance invokes
-// the hook at the front of the queue and discards it. After the queue is
-// empty, the default hook function is invoked for any future action.
-func (f *RunnerDescribeConfigurationFunc) PushHook(hook func(config.Config, ...interface{}) (string, error)) {
-	f.mutex.Lock()
-	f.hooks = append(f.hooks, hook)
-	f.mutex.Unlock()
-}
-
-// SetDefaultReturn calls SetDefaultDefaultHook with a function that returns
-// the given values.
-func (f *RunnerDescribeConfigurationFunc) SetDefaultReturn(r0 string, r1 error) {
-	f.SetDefaultHook(func(config.Config, ...interface{}) (string, error) {
-		return r0, r1
-	})
-}
-
-// PushReturn calls PushDefaultHook with a function that returns the given
-// values.
-func (f *RunnerDescribeConfigurationFunc) PushReturn(r0 string, r1 error) {
-	f.PushHook(func(config.Config, ...interface{}) (string, error) {
-		return r0, r1
-	})
-}
-
-func (f *RunnerDescribeConfigurationFunc) nextHook() func(config.Config, ...interface{}) (string, error) {
-	f.mutex.Lock()
-	defer f.mutex.Unlock()
-
-	if len(f.hooks) == 0 {
-		return f.defaultHook
-	}
-
-	hook := f.hooks[0]
-	f.hooks = f.hooks[1:]
-	return hook
-}
-
-func (f *RunnerDescribeConfigurationFunc) appendCall(r0 RunnerDescribeConfigurationFuncCall) {
-	f.mutex.Lock()
-	f.history = append(f.history, r0)
-	f.mutex.Unlock()
-}
-
-// History returns a sequence of RunnerDescribeConfigurationFuncCall objects
-// describing the invocations of this function.
-func (f *RunnerDescribeConfigurationFunc) History() []RunnerDescribeConfigurationFuncCall {
-	f.mutex.Lock()
-	history := make([]RunnerDescribeConfigurationFuncCall, len(f.history))
-	copy(history, f.history)
-	f.mutex.Unlock()
-
-	return history
-}
-
-// RunnerDescribeConfigurationFuncCall is an object that describes an
-// invocation of method DescribeConfiguration on an instance of MockRunner.
-type RunnerDescribeConfigurationFuncCall struct {
-	// Arg0 is the value of the 1st argument passed to this method
-	// invocation.
-	Arg0 config.Config
-	// Arg1 is a slice containing the values of the variadic arguments
-	// passed to this method invocation.
-	Arg1 []interface{}
-	// Result0 is the value of the 1st result returned from this method
-	// invocation.
-	Result0 string
-	// Result1 is the value of the 2nd result returned from this method
-	// invocation.
-	Result1 error
-}
-
-// Args returns an interface slice containing the arguments of this
-// invocation. The variadic slice argument is flattened in this array such
-// that one positional argument and three variadic arguments would result in
-// a slice of four, not two.
-func (c RunnerDescribeConfigurationFuncCall) Args() []interface{} {
-	trailing := []interface{}{}
-	for _, val := range c.Arg1 {
-		trailing = append(trailing, val)
-	}
-
-	return append([]interface{}{c.Arg0}, trailing...)
-}
-
-// Results returns an interface slice containing the results of this
-// invocation.
-func (c RunnerDescribeConfigurationFuncCall) Results() []interface{} {
-	return []interface{}{c.Result0, c.Result1}
-}
-
-// RunnerLoadConfigFunc describes the behavior when the LoadConfig method of
-// the parent MockRunner instance is invoked.
-type RunnerLoadConfigFunc struct {
-	defaultHook func(config.Config)
-	hooks       []func(config.Config)
-	history     []RunnerLoadConfigFuncCall
-	mutex       sync.Mutex
-}
-
-// LoadConfig delegates to the next hook function in the queue and stores
-// the parameter and result values of this invocation.
-func (m *MockRunner) LoadConfig(v0 config.Config) {
-	m.LoadConfigFunc.nextHook()(v0)
-	m.LoadConfigFunc.appendCall(RunnerLoadConfigFuncCall{v0})
-	return
-}
-
-// SetDefaultHook sets function that is called when the LoadConfig method of
-// the parent MockRunner instance is invoked and the hook queue is empty.
-func (f *RunnerLoadConfigFunc) SetDefaultHook(hook func(config.Config)) {
-	f.defaultHook = hook
-}
-
-// PushHook adds a function to the end of hook queue. Each invocation of the
-// LoadConfig method of the parent MockRunner instance invokes the hook at
-// the front of the queue and discards it. After the queue is empty, the
-// default hook function is invoked for any future action.
-func (f *RunnerLoadConfigFunc) PushHook(hook func(config.Config)) {
-	f.mutex.Lock()
-	f.hooks = append(f.hooks, hook)
-	f.mutex.Unlock()
-}
-
-// SetDefaultReturn calls SetDefaultDefaultHook with a function that returns
-// the given values.
-func (f *RunnerLoadConfigFunc) SetDefaultReturn() {
-	f.SetDefaultHook(func(config.Config) {
-		return
-	})
-}
-
-// PushReturn calls PushDefaultHook with a function that returns the given
-// values.
-func (f *RunnerLoadConfigFunc) PushReturn() {
-	f.PushHook(func(config.Config) {
-		return
-	})
-}
-
-func (f *RunnerLoadConfigFunc) nextHook() func(config.Config) {
-	f.mutex.Lock()
-	defer f.mutex.Unlock()
-
-	if len(f.hooks) == 0 {
-		return f.defaultHook
-	}
-
-	hook := f.hooks[0]
-	f.hooks = f.hooks[1:]
-	return hook
-}
-
-func (f *RunnerLoadConfigFunc) appendCall(r0 RunnerLoadConfigFuncCall) {
-	f.mutex.Lock()
-	f.history = append(f.history, r0)
-	f.mutex.Unlock()
-}
-
-// History returns a sequence of RunnerLoadConfigFuncCall objects describing
-// the invocations of this function.
-func (f *RunnerLoadConfigFunc) History() []RunnerLoadConfigFuncCall {
-	f.mutex.Lock()
-	history := make([]RunnerLoadConfigFuncCall, len(f.history))
-	copy(history, f.history)
-	f.mutex.Unlock()
-
-	return history
-}
-
-// RunnerLoadConfigFuncCall is an object that describes an invocation of
-// method LoadConfig on an instance of MockRunner.
-type RunnerLoadConfigFuncCall struct {
-	// Arg0 is the value of the 1st argument passed to this method
-	// invocation.
-	Arg0 config.Config
-}
-
-// Args returns an interface slice containing the arguments of this
-// invocation.
-func (c RunnerLoadConfigFuncCall) Args() []interface{} {
-	return []interface{}{c.Arg0}
-}
-
-// Results returns an interface slice containing the results of this
-// invocation.
-func (c RunnerLoadConfigFuncCall) Results() []interface{} {
-	return []interface{}{}
 }
 
 // RunnerRunFunc describes the behavior when the Run method of the parent
@@ -501,108 +251,5 @@ func (c RunnerShutdownFuncCall) Args() []interface{} {
 // Results returns an interface slice containing the results of this
 // invocation.
 func (c RunnerShutdownFuncCall) Results() []interface{} {
-	return []interface{}{c.Result0}
-}
-
-// RunnerValidateConfigFunc describes the behavior when the ValidateConfig
-// method of the parent MockRunner instance is invoked.
-type RunnerValidateConfigFunc struct {
-	defaultHook func(config.Config) error
-	hooks       []func(config.Config) error
-	history     []RunnerValidateConfigFuncCall
-	mutex       sync.Mutex
-}
-
-// ValidateConfig delegates to the next hook function in the queue and
-// stores the parameter and result values of this invocation.
-func (m *MockRunner) ValidateConfig(v0 config.Config) error {
-	r0 := m.ValidateConfigFunc.nextHook()(v0)
-	m.ValidateConfigFunc.appendCall(RunnerValidateConfigFuncCall{v0, r0})
-	return r0
-}
-
-// SetDefaultHook sets function that is called when the ValidateConfig
-// method of the parent MockRunner instance is invoked and the hook queue is
-// empty.
-func (f *RunnerValidateConfigFunc) SetDefaultHook(hook func(config.Config) error) {
-	f.defaultHook = hook
-}
-
-// PushHook adds a function to the end of hook queue. Each invocation of the
-// ValidateConfig method of the parent MockRunner instance invokes the hook
-// at the front of the queue and discards it. After the queue is empty, the
-// default hook function is invoked for any future action.
-func (f *RunnerValidateConfigFunc) PushHook(hook func(config.Config) error) {
-	f.mutex.Lock()
-	f.hooks = append(f.hooks, hook)
-	f.mutex.Unlock()
-}
-
-// SetDefaultReturn calls SetDefaultDefaultHook with a function that returns
-// the given values.
-func (f *RunnerValidateConfigFunc) SetDefaultReturn(r0 error) {
-	f.SetDefaultHook(func(config.Config) error {
-		return r0
-	})
-}
-
-// PushReturn calls PushDefaultHook with a function that returns the given
-// values.
-func (f *RunnerValidateConfigFunc) PushReturn(r0 error) {
-	f.PushHook(func(config.Config) error {
-		return r0
-	})
-}
-
-func (f *RunnerValidateConfigFunc) nextHook() func(config.Config) error {
-	f.mutex.Lock()
-	defer f.mutex.Unlock()
-
-	if len(f.hooks) == 0 {
-		return f.defaultHook
-	}
-
-	hook := f.hooks[0]
-	f.hooks = f.hooks[1:]
-	return hook
-}
-
-func (f *RunnerValidateConfigFunc) appendCall(r0 RunnerValidateConfigFuncCall) {
-	f.mutex.Lock()
-	f.history = append(f.history, r0)
-	f.mutex.Unlock()
-}
-
-// History returns a sequence of RunnerValidateConfigFuncCall objects
-// describing the invocations of this function.
-func (f *RunnerValidateConfigFunc) History() []RunnerValidateConfigFuncCall {
-	f.mutex.Lock()
-	history := make([]RunnerValidateConfigFuncCall, len(f.history))
-	copy(history, f.history)
-	f.mutex.Unlock()
-
-	return history
-}
-
-// RunnerValidateConfigFuncCall is an object that describes an invocation of
-// method ValidateConfig on an instance of MockRunner.
-type RunnerValidateConfigFuncCall struct {
-	// Arg0 is the value of the 1st argument passed to this method
-	// invocation.
-	Arg0 config.Config
-	// Result0 is the value of the 1st result returned from this method
-	// invocation.
-	Result0 error
-}
-
-// Args returns an interface slice containing the arguments of this
-// invocation.
-func (c RunnerValidateConfigFuncCall) Args() []interface{} {
-	return []interface{}{c.Arg0}
-}
-
-// Results returns an interface slice containing the results of this
-// invocation.
-func (c RunnerValidateConfigFuncCall) Results() []interface{} {
 	return []interface{}{c.Result0}
 }

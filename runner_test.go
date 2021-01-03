@@ -3,139 +3,12 @@ package process
 import (
 	"context"
 	"fmt"
-	"sort"
 	"testing"
 	"time"
 
 	"github.com/derision-test/glock"
-	"github.com/go-nacelle/config/mocks"
 	"github.com/go-nacelle/service"
-	"github.com/stretchr/testify/require"
 )
-
-func TestRunnerLoadAndValidateConfig(t *testing.T) {
-	services := service.NewServiceContainer()
-	processes := NewProcessContainer()
-	health := NewHealth()
-	runner := NewRunner(processes, services, health)
-
-	i1 := newTaggedInitializer(nil, "a")
-	i2 := newTaggedInitializer(nil, "b")
-	i3 := newTaggedInitializer(nil, "c")
-	p1 := newTaggedProcess(nil, nil, nil, "d")
-	p2 := newTaggedProcess(nil, nil, nil, "e")
-	p3 := newTaggedProcess(nil, nil, nil, "f")
-
-	// Register things
-	processes.RegisterInitializer(i1)
-	processes.RegisterInitializer(i2)
-	processes.RegisterInitializer(i3)
-	processes.RegisterProcess(p1)
-	processes.RegisterProcess(p2, WithProcessPriority(5))
-	processes.RegisterProcess(p3, WithProcessPriority(3))
-
-	// Configuration target must be a struct
-	type T struct{ Name string }
-
-	// Set registered configuration targets
-	i1.configurationTargets = []interface{}{T{"iA1"}, T{"iB1"}}
-	i2.configurationTargets = []interface{}{T{"iA2"}, T{"iB2"}}
-	i3.configurationTargets = []interface{}{T{"iA3"}, T{"iB3"}}
-	p1.configurationTargets = []interface{}{T{"pA4"}}
-	p2.configurationTargets = []interface{}{T{"pA5"}}
-	p3.configurationTargets = []interface{}{T{"pA6"}}
-
-	config := mocks.NewMockConfig()
-	runner.LoadConfig(config)
-	require.Nil(t, runner.ValidateConfig(config))
-
-	var values []string
-	for _, call := range config.LoadFunc.History() {
-		values = append(values, call.Arg0.(T).Name)
-	}
-	sort.Strings(values)
-
-	expected := []string{
-		"iA1",
-		"iA2",
-		"iA3",
-		"iB1",
-		"iB2",
-		"iB3",
-		"pA4",
-		"pA5",
-		"pA6",
-	}
-	require.Equal(t, expected, values)
-}
-
-func TestRunnerLoadAndValidateConfigLoadFailure(t *testing.T) {
-	services := service.NewServiceContainer()
-	processes := NewProcessContainer()
-	health := NewHealth()
-	runner := NewRunner(processes, services, health)
-
-	i1 := newTaggedInitializer(nil, "a")
-	i2 := newTaggedInitializer(nil, "b")
-	i3 := newTaggedInitializer(nil, "c")
-	p1 := newTaggedProcess(nil, nil, nil, "d")
-	p2 := newTaggedProcess(nil, nil, nil, "e")
-	p3 := newTaggedProcess(nil, nil, nil, "f")
-
-	// Register things
-	processes.RegisterInitializer(i1)
-	processes.RegisterInitializer(i2)
-	processes.RegisterInitializer(i3)
-	processes.RegisterProcess(p1)
-	processes.RegisterProcess(p2, WithProcessPriority(5))
-	processes.RegisterProcess(p3, WithProcessPriority(3))
-
-	// Configuration target must be a struct
-	type T struct{ Name string }
-
-	// Set registered configuration targets
-	i1.configurationTargets = []interface{}{T{"iA1"}, T{"iB1"}}
-
-	config := mocks.NewMockConfig()
-	config.LoadFunc.PushReturn(fmt.Errorf("oops"))
-
-	runner.LoadConfig(config)
-	require.NotNil(t, runner.ValidateConfig(config))
-}
-
-func TestRunnerLoadAndValidateConfigPostLoadFailure(t *testing.T) {
-	services := service.NewServiceContainer()
-	processes := NewProcessContainer()
-	health := NewHealth()
-	runner := NewRunner(processes, services, health)
-
-	i1 := newTaggedInitializer(nil, "a")
-	i2 := newTaggedInitializer(nil, "b")
-	i3 := newTaggedInitializer(nil, "c")
-	p1 := newTaggedProcess(nil, nil, nil, "d")
-	p2 := newTaggedProcess(nil, nil, nil, "e")
-	p3 := newTaggedProcess(nil, nil, nil, "f")
-
-	// Register things
-	processes.RegisterInitializer(i1)
-	processes.RegisterInitializer(i2)
-	processes.RegisterInitializer(i3)
-	processes.RegisterProcess(p1)
-	processes.RegisterProcess(p2, WithProcessPriority(5))
-	processes.RegisterProcess(p3, WithProcessPriority(3))
-
-	// Configuration target must be a struct
-	type T struct{ Name string }
-
-	// Set registered configuration targets
-	i1.configurationTargets = []interface{}{T{"iA1"}, T{"iB1"}}
-
-	config := mocks.NewMockConfig()
-	config.PostLoadFunc.PushReturn(fmt.Errorf("oops"))
-
-	runner.LoadConfig(config)
-	require.NotNil(t, runner.ValidateConfig(config))
-}
 
 func TestRunnerRunOrder(t *testing.T) {
 	services := service.NewServiceContainer()
@@ -954,25 +827,15 @@ func TestContext(t *testing.T) {
 //
 
 type taggedInitializer struct {
-	name                        string
-	init                        chan<- string
-	initErr                     error
-	configurationTargets        []interface{}
-	registerConfigurationCalled bool
+	name    string
+	init    chan<- string
+	initErr error
 }
 
 func newTaggedInitializer(init chan<- string, name string) *taggedInitializer {
 	return &taggedInitializer{
 		name: name,
 		init: init,
-	}
-}
-
-func (i *taggedInitializer) RegisterConfiguration(registry ConfigurationRegistry) {
-	i.registerConfigurationCalled = true
-
-	for _, target := range i.configurationTargets {
-		registry.Register(target)
 	}
 }
 
@@ -1009,13 +872,11 @@ func (i *taggedFinalizer) Finalize(ctx context.Context) error {
 //
 
 type taggedProcess struct {
-	name                        string
-	init                        chan<- string
-	start                       chan<- string
-	stop                        chan<- string
-	configurationTargets        []interface{}
-	registerConfigurationCalled bool
-	wait                        chan struct{}
+	name  string
+	init  chan<- string
+	start chan<- string
+	stop  chan<- string
+	wait  chan struct{}
 
 	initErr  error
 	startErr error
@@ -1029,14 +890,6 @@ func newTaggedProcess(init, start, stop chan<- string, name string) *taggedProce
 		start: start,
 		stop:  stop,
 		wait:  make(chan struct{}, 1), // Make this safe to close twice w/o blocking
-	}
-}
-
-func (p *taggedProcess) RegisterConfiguration(registry ConfigurationRegistry) {
-	p.registerConfigurationCalled = true
-
-	for _, target := range p.configurationTargets {
-		registry.Register(target)
 	}
 }
 
