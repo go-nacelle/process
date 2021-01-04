@@ -34,7 +34,7 @@ type Runner interface {
 
 type runner struct {
 	processes           ProcessContainer
-	services            service.ServiceContainer
+	services            *service.Container
 	health              Health
 	watcher             *processWatcher
 	errChan             chan errMeta
@@ -74,7 +74,7 @@ type namedFinalizer interface {
 // containers.
 func NewRunner(
 	processes ProcessContainer,
-	services service.ServiceContainer,
+	services *service.Container,
 	health Health,
 	runnerConfigs ...RunnerConfigFunc,
 ) Runner {
@@ -349,13 +349,13 @@ func (r *runner) inject(injectable namedInjectable) error {
 // inject will inject the given injectable with services. The service container
 // is first modified via overlay so that the logger is tagged with the service
 // name and any additional logging fields registered to the service.
-func inject(injectable namedInjectable, services service.ServiceContainer, logger log.Logger) error {
+func inject(injectable namedInjectable, services *service.Container, logger log.Logger) error {
 	// Tag the logger with any registered log fields
 	logger = logger.WithFields(injectable.LogFields())
 
 	// Create an overlay service map replacing `logger` and `services` keys
-	serviceMap := map[string]interface{}{"logger": logger}
-	overlayServices := service.Overlay(services, serviceMap)
+	serviceMap := map[interface{}]interface{}{"logger": logger}
+	overlayServices := service.NewOverlay(services, serviceMap)
 	serviceMap["services"] = overlayServices
 
 	// Inject the services
