@@ -7,7 +7,7 @@
 - Added `Finalize` support to `Process` interface. [#5](https://github.com/go-nacelle/process/pull/5)
 - Added `WithInitializerContextFilter` and `WithProcessContextFilter`. [#5](https://github.com/go-nacelle/process/pull/5)
 - Added `WithInitializerPriority`. [#9](https://github.com/go-nacelle/process/pull/9)
-- Added `WithInjectHook` and `WithHealth`. [#TODO](https://github.com/go-nacelle/process/pull/TODO)
+- Added `WithInjectHook` and `WithHealth`. [#14](https://github.com/go-nacelle/process/pull/14)
 
 ### Changed
 
@@ -16,7 +16,7 @@
 - Removed config parameters from `Init` methods. [#7](https://github.com/go-nacelle/process/pull/7)
 - Renamed `WithPriority` to `WithProcessPriority`. [#9](https://github.com/go-nacelle/process/pull/9)
 - The `Init` methods of initializers and processors registered at the same priority initializer or process priority are now called concurrently. [#9](https://github.com/go-nacelle/process/pull/9)
-- Changed signature of `NewRunner`. [#TODO](https://github.com/go-nacelle/process/pull/TODO)
+- Changed signature of `NewRunner`. [#14](https://github.com/go-nacelle/process/pull/14)
 
 ### Removed
 
