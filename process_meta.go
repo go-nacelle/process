@@ -4,8 +4,6 @@ import (
 	"context"
 	"sync"
 	"time"
-
-	"github.com/go-nacelle/log"
 )
 
 // ProcessMeta wraps a process with some package private
@@ -15,7 +13,7 @@ type ProcessMeta struct {
 	Process
 	contextFilter   func(ctx context.Context) context.Context
 	name            string
-	logFields       log.LogFields
+	logFields       LogFields
 	priority        int
 	silentExit      bool
 	once            *sync.Once
@@ -53,7 +51,7 @@ func (m *ProcessMeta) Name() string {
 }
 
 // LogFields returns logging fields registered to this process.
-func (m *ProcessMeta) LogFields() log.LogFields {
+func (m *ProcessMeta) LogFields() LogFields {
 	return m.logFields
 }
 

@@ -3,8 +3,6 @@ package process
 import (
 	"context"
 	"time"
-
-	"github.com/go-nacelle/log"
 )
 
 // InitializerMeta wraps an initializer with some package
@@ -13,7 +11,7 @@ type InitializerMeta struct {
 	Initializer
 	contextFilter   func(ctx context.Context) context.Context
 	name            string
-	logFields       log.LogFields
+	logFields       LogFields
 	priority        int
 	initTimeout     time.Duration
 	finalizeTimeout time.Duration
@@ -43,7 +41,7 @@ func (m *InitializerMeta) Name() string {
 }
 
 // LogFields returns logging fields registered to this initializer.
-func (m *InitializerMeta) LogFields() log.LogFields {
+func (m *InitializerMeta) LogFields() LogFields {
 	return m.logFields
 }
 

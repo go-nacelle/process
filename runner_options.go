@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"github.com/derision-test/glock"
-	"github.com/go-nacelle/log"
 )
 
 // RunnerConfigFunc is a function used to configure an instance
@@ -22,7 +21,7 @@ func WithHealth(health Health) RunnerConfigFunc {
 }
 
 // WithLogger sets the logger used by the runner.
-func WithLogger(logger log.Logger) RunnerConfigFunc {
+func WithLogger(logger Logger) RunnerConfigFunc {
 	return func(r *runner) { r.logger = logger }
 }
 

@@ -8,6 +8,7 @@
 - Added `WithInitializerContextFilter` and `WithProcessContextFilter`. [#5](https://github.com/go-nacelle/process/pull/5)
 - Added `WithInitializerPriority`. [#9](https://github.com/go-nacelle/process/pull/9)
 - Added `WithInjectHook` and `WithHealth`. [#14](https://github.com/go-nacelle/process/pull/14)
+- Added `Logger` interface, `LogFields` type, and `NilLogger` variable. [#15](https://github.com/go-nacelle/process/pull/15)
 
 ### Changed
 
@@ -23,6 +24,7 @@
 - Removed `ParallelInitializer`. [#9](https://github.com/go-nacelle/process/pull/9)
 - Removed mocks package. [#11](https://github.com/go-nacelle/process/pull/11)
 - Removed dependency on [go-nacelle/service](https://github.com/go-nacelle/service). [#14](https://github.com/go-nacelle/process/pull/14)
+- Removed dependency on [go-nacelle/log](https://github.com/go-nacelle/log). [#15](https://github.com/go-nacelle/process/pull/15)
 
 ## [v1.1.0] - 2020-10-03
 
