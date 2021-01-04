@@ -22,6 +22,7 @@
 
 - Removed `ParallelInitializer`. [#9](https://github.com/go-nacelle/process/pull/9)
 - Removed mocks package. [#11](https://github.com/go-nacelle/process/pull/11)
+- Removed dependency on [go-nacelle/service](https://github.com/go-nacelle/service). [#14](https://github.com/go-nacelle/process/pull/14)
 
 ## [v1.1.0] - 2020-10-03
 
