@@ -11,6 +11,16 @@ import (
 // of a ProcessRunner.
 type RunnerConfigFunc func(*runner)
 
+// WithInjectHook sets the inject hook used by the runner.
+func WithInjectHook(injectHook InjectHook) RunnerConfigFunc {
+	return func(r *runner) { r.injectHook = injectHook }
+}
+
+// WihHealth sets the health container used by the runner.
+func WithHealth(health Health) RunnerConfigFunc {
+	return func(r *runner) { r.health = health }
+}
+
 // WithLogger sets the logger used by the runner.
 func WithLogger(logger log.Logger) RunnerConfigFunc {
 	return func(r *runner) { r.logger = logger }

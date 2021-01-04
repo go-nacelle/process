@@ -7,14 +7,11 @@ import (
 	"time"
 
 	"github.com/derision-test/glock"
-	"github.com/go-nacelle/service"
 )
 
 func TestRunnerRunOrder(t *testing.T) {
-	services := service.New()
 	processes := NewProcessContainer()
-	health := NewHealth()
-	runner := NewRunner(processes, services, health)
+	runner := NewRunner(processes)
 	init := make(chan string)
 	finalize := make(chan string)
 	start := make(chan string)
@@ -86,10 +83,8 @@ func TestRunnerRunOrder(t *testing.T) {
 }
 
 func TestRunnerEarlyExit(t *testing.T) {
-	services := service.New()
 	processes := NewProcessContainer()
-	health := NewHealth()
-	runner := NewRunner(processes, services, health)
+	runner := NewRunner(processes)
 	init := make(chan string)
 	start := make(chan string)
 	stop := make(chan string)
@@ -122,10 +117,8 @@ func TestRunnerEarlyExit(t *testing.T) {
 }
 
 func TestRunnerSilentExit(t *testing.T) {
-	services := service.New()
 	processes := NewProcessContainer()
-	health := NewHealth()
-	runner := NewRunner(processes, services, health)
+	runner := NewRunner(processes)
 	init := make(chan string)
 	start := make(chan string)
 	stop := make(chan string)
@@ -148,11 +141,9 @@ func TestRunnerSilentExit(t *testing.T) {
 }
 
 func TestRunnerShutdownTimeout(t *testing.T) {
-	services := service.New()
 	processes := NewProcessContainer()
-	health := NewHealth()
 	clock := glock.NewMockClock()
-	runner := NewRunner(processes, services, health, WithClock(clock))
+	runner := NewRunner(processes, WithClock(clock))
 	sync := make(chan struct{})
 	process := newBlockingProcess(sync)
 	errChan := make(chan error)
@@ -181,7 +172,6 @@ func TestRunnerShutdownTimeout(t *testing.T) {
 }
 
 func TestRunnerProcessStartTimeout(t *testing.T) {
-	services := service.New()
 	processes := NewProcessContainer()
 	health := NewHealth()
 	clock := glock.NewMockClock()
@@ -189,13 +179,7 @@ func TestRunnerProcessStartTimeout(t *testing.T) {
 	start := make(chan string)
 	stop := make(chan string)
 	errChan := make(chan error)
-	runner := NewRunner(
-		processes,
-		services,
-		health,
-		WithClock(clock),
-		WithStartTimeout(time.Minute),
-	)
+	runner := NewRunner(processes, WithHealth(health), WithClock(clock), WithStartTimeout(time.Minute))
 
 	// Stop the process from going healthy
 	health.AddReason("oops1")
@@ -241,11 +225,9 @@ func TestRunnerProcessStartTimeout(t *testing.T) {
 }
 
 func TestRunnerProcessShutdownTimeout(t *testing.T) {
-	services := service.New()
 	processes := NewProcessContainer()
-	health := NewHealth()
 	clock := glock.NewMockClock()
-	runner := NewRunner(processes, services, health, WithClock(clock))
+	runner := NewRunner(processes, WithClock(clock))
 	init := make(chan string)
 	start := make(chan string)
 	stop := make(chan string)
@@ -291,10 +273,15 @@ func TestRunnerProcessShutdownTimeout(t *testing.T) {
 }
 
 func TestRunnerInitializerInjectionError(t *testing.T) {
-	services := service.New()
 	processes := NewProcessContainer()
-	health := NewHealth()
-	runner := NewRunner(processes, services, health)
+	runner := NewRunner(processes, WithInjectHook(func(injectable NamedInjectable) error {
+		if injectable.Name() == "b" {
+			return fmt.Errorf("oops")
+		}
+
+		return nil
+	}))
+
 	init := make(chan string)
 	start := make(chan string)
 	stop := make(chan string)
@@ -322,7 +309,7 @@ func TestRunnerInitializerInjectionError(t *testing.T) {
 	// Ensure error is encountered
 	eventually(t, stringChanReceivesOrdered(init, "a"))
 	consistently(t, stringChanDoesNotReceive(init))
-	eventually(t, errorChanReceivesUnordered(errChan, "failed to inject services into b"))
+	eventually(t, errorChanReceivesUnordered(errChan, "failed to perform inject hook for b"))
 
 	// Nothing else called
 	consistently(t, stringChanDoesNotReceive(init))
@@ -331,10 +318,15 @@ func TestRunnerInitializerInjectionError(t *testing.T) {
 }
 
 func TestRunnerProcessInjectionError(t *testing.T) {
-	services := service.New()
 	processes := NewProcessContainer()
-	health := NewHealth()
-	runner := NewRunner(processes, services, health)
+	runner := NewRunner(processes, WithInjectHook(func(injectable NamedInjectable) error {
+		if injectable.Name() == "f" {
+			return fmt.Errorf("oops")
+		}
+
+		return nil
+	}))
+
 	init := make(chan string)
 	start := make(chan string)
 	stop := make(chan string)
@@ -373,7 +365,7 @@ func TestRunnerProcessInjectionError(t *testing.T) {
 	// All processes are injected before any are initialized
 	consistently(t, stringChanDoesNotReceive(init))
 
-	eventually(t, errorChanReceivesUnordered(errChan, "failed to inject services into f"))
+	eventually(t, errorChanReceivesUnordered(errChan, "failed to perform inject hook for f"))
 
 	// Nothing else called
 	consistently(t, stringChanDoesNotReceive(init))
@@ -383,11 +375,9 @@ func TestRunnerProcessInjectionError(t *testing.T) {
 }
 
 func TestRunnerInitializerInitTimeout(t *testing.T) {
-	services := service.New()
 	processes := NewProcessContainer()
-	health := NewHealth()
 	clock := glock.NewMockClock()
-	runner := NewRunner(processes, services, health, WithClock(clock))
+	runner := NewRunner(processes, WithClock(clock))
 	init := make(chan string)
 	errChan := make(chan error)
 
@@ -416,11 +406,9 @@ func TestRunnerInitializerInitTimeout(t *testing.T) {
 }
 
 func TestRunnerFinalizerFinalizeTimeout(t *testing.T) {
-	services := service.New()
 	processes := NewProcessContainer()
-	health := NewHealth()
 	clock := glock.NewMockClock()
-	runner := NewRunner(processes, services, health, WithClock(clock))
+	runner := NewRunner(processes, WithClock(clock))
 	init := make(chan string)
 	finalize := make(chan string)
 	start := make(chan string)
@@ -462,10 +450,8 @@ func TestRunnerFinalizerFinalizeTimeout(t *testing.T) {
 }
 
 func TestRunnerFinalizerError(t *testing.T) {
-	services := service.New()
 	processes := NewProcessContainer()
-	health := NewHealth()
-	runner := NewRunner(processes, services, health)
+	runner := NewRunner(processes)
 	init := make(chan string)
 	finalize := make(chan string)
 	errChan := make(chan error)
@@ -507,11 +493,9 @@ func TestRunnerFinalizerError(t *testing.T) {
 }
 
 func TestRunnerProcessInitTimeout(t *testing.T) {
-	services := service.New()
 	processes := NewProcessContainer()
-	health := NewHealth()
 	clock := glock.NewMockClock()
-	runner := NewRunner(processes, services, health, WithClock(clock))
+	runner := NewRunner(processes, WithClock(clock))
 	init := make(chan string)
 	start := make(chan string)
 	stop := make(chan string)
@@ -546,10 +530,8 @@ func TestRunnerProcessInitTimeout(t *testing.T) {
 }
 
 func TestRunnerInitializerError(t *testing.T) {
-	services := service.New()
 	processes := NewProcessContainer()
-	health := NewHealth()
-	runner := NewRunner(processes, services, health)
+	runner := NewRunner(processes)
 	init := make(chan string)
 	finalize := make(chan string)
 	start := make(chan string)
@@ -592,10 +574,8 @@ func TestRunnerInitializerError(t *testing.T) {
 }
 
 func TestRunnerProcessInitError(t *testing.T) {
-	services := service.New()
 	processes := NewProcessContainer()
-	health := NewHealth()
-	runner := NewRunner(processes, services, health)
+	runner := NewRunner(processes)
 	init := make(chan string)
 	start := make(chan string)
 	stop := make(chan string)
@@ -654,10 +634,8 @@ func TestRunnerProcessInitError(t *testing.T) {
 }
 
 func TestRunnerProcessStartError(t *testing.T) {
-	services := service.New()
 	processes := NewProcessContainer()
-	health := NewHealth()
-	runner := NewRunner(processes, services, health)
+	runner := NewRunner(processes)
 	init := make(chan string)
 	start := make(chan string)
 	stop := make(chan string)
@@ -723,10 +701,8 @@ func TestRunnerProcessStartError(t *testing.T) {
 }
 
 func TestRunnerProcessStopError(t *testing.T) {
-	services := service.New()
 	processes := NewProcessContainer()
-	health := NewHealth()
-	runner := NewRunner(processes, services, health)
+	runner := NewRunner(processes)
 	init := make(chan string)
 	start := make(chan string)
 	stop := make(chan string)
@@ -785,10 +761,8 @@ func TestRunnerProcessStopError(t *testing.T) {
 }
 
 func TestContext(t *testing.T) {
-	services := service.New()
 	processes := NewProcessContainer()
-	health := NewHealth()
-	runner := NewRunner(processes, services, health)
+	runner := NewRunner(processes)
 
 	p1 := newContextProcess()
 	p2 := newContextProcess()

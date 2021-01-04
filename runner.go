@@ -11,7 +11,6 @@ import (
 	"github.com/derision-test/glock"
 
 	"github.com/go-nacelle/log"
-	"github.com/go-nacelle/service"
 )
 
 // Runner wraps a process container. Given a loaded configuration object,
@@ -34,7 +33,7 @@ type Runner interface {
 
 type runner struct {
 	processes           ProcessContainer
-	services            *service.Container
+	injectHook          InjectHook
 	health              Health
 	watcher             *processWatcher
 	errChan             chan errMeta
@@ -49,11 +48,15 @@ type runner struct {
 
 var _ Runner = &runner{}
 
+// InjectHook is a function that is called on each service at injection time.
+type InjectHook func(NamedInjectable) error
+
 type namedInjectable interface {
 	Name() string
 	LogFields() log.LogFields
 	Wrapped() interface{}
 }
+type NamedInjectable = namedInjectable
 
 type namedInitializer interface {
 	Initializer
@@ -74,8 +77,6 @@ type namedFinalizer interface {
 // containers.
 func NewRunner(
 	processes ProcessContainer,
-	services *service.Container,
-	health Health,
 	runnerConfigs ...RunnerConfigFunc,
 ) Runner {
 	errChan := make(chan errMeta)
@@ -83,8 +84,6 @@ func NewRunner(
 
 	r := &runner{
 		processes:           processes,
-		services:            services,
-		health:              health,
 		errChan:             errChan,
 		outChan:             outChan,
 		wg:                  &sync.WaitGroup{},
@@ -333,33 +332,21 @@ func (r *runner) injectProcesses() bool {
 }
 
 func (r *runner) inject(injectable namedInjectable) error {
-	r.logger.WithFields(injectable.LogFields()).Info("Injecting services into %s", injectable.Name())
+	if r.injectHook == nil {
+		return nil
+	}
 
-	if err := inject(injectable, r.services, r.logger); err != nil {
+	r.logger.WithFields(injectable.LogFields()).Info("Running inject hook for %s", injectable.Name())
+
+	if err := r.injectHook(injectable); err != nil {
 		return fmt.Errorf(
-			"failed to inject services into %s (%s)",
+			"failed to perform inject hook for %s (%s)",
 			injectable.Name(),
 			err.Error(),
 		)
 	}
 
 	return nil
-}
-
-// inject will inject the given injectable with services. The service container
-// is first modified via overlay so that the logger is tagged with the service
-// name and any additional logging fields registered to the service.
-func inject(injectable namedInjectable, services *service.Container, logger log.Logger) error {
-	// Tag the logger with any registered log fields
-	logger = logger.WithFields(injectable.LogFields())
-
-	// Create an overlay service map replacing `logger` and `services` keys
-	serviceMap := map[interface{}]interface{}{"logger": logger}
-	overlayServices := service.NewOverlay(services, serviceMap)
-	serviceMap["services"] = overlayServices
-
-	// Inject the services
-	return overlayServices.Inject(injectable.Wrapped())
 }
 
 //
@@ -593,6 +580,10 @@ func (r *runner) startupTimeoutForPriorityIndex(index int) time.Duration {
 }
 
 func (r *runner) getHealthDescriptions() []string {
+	if r.health == nil {
+		return nil
+	}
+
 	descriptions := []string{}
 	for _, reason := range r.health.Reasons() {
 		descriptions = append(descriptions, fmt.Sprintf("%s", reason.Key))
