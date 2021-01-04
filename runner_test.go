@@ -11,7 +11,7 @@ import (
 )
 
 func TestRunnerRunOrder(t *testing.T) {
-	services := service.NewServiceContainer()
+	services := service.New()
 	processes := NewProcessContainer()
 	health := NewHealth()
 	runner := NewRunner(processes, services, health)
@@ -86,7 +86,7 @@ func TestRunnerRunOrder(t *testing.T) {
 }
 
 func TestRunnerEarlyExit(t *testing.T) {
-	services := service.NewServiceContainer()
+	services := service.New()
 	processes := NewProcessContainer()
 	health := NewHealth()
 	runner := NewRunner(processes, services, health)
@@ -122,7 +122,7 @@ func TestRunnerEarlyExit(t *testing.T) {
 }
 
 func TestRunnerSilentExit(t *testing.T) {
-	services := service.NewServiceContainer()
+	services := service.New()
 	processes := NewProcessContainer()
 	health := NewHealth()
 	runner := NewRunner(processes, services, health)
@@ -148,7 +148,7 @@ func TestRunnerSilentExit(t *testing.T) {
 }
 
 func TestRunnerShutdownTimeout(t *testing.T) {
-	services := service.NewServiceContainer()
+	services := service.New()
 	processes := NewProcessContainer()
 	health := NewHealth()
 	clock := glock.NewMockClock()
@@ -181,7 +181,7 @@ func TestRunnerShutdownTimeout(t *testing.T) {
 }
 
 func TestRunnerProcessStartTimeout(t *testing.T) {
-	services := service.NewServiceContainer()
+	services := service.New()
 	processes := NewProcessContainer()
 	health := NewHealth()
 	clock := glock.NewMockClock()
@@ -241,7 +241,7 @@ func TestRunnerProcessStartTimeout(t *testing.T) {
 }
 
 func TestRunnerProcessShutdownTimeout(t *testing.T) {
-	services := service.NewServiceContainer()
+	services := service.New()
 	processes := NewProcessContainer()
 	health := NewHealth()
 	clock := glock.NewMockClock()
@@ -291,7 +291,7 @@ func TestRunnerProcessShutdownTimeout(t *testing.T) {
 }
 
 func TestRunnerInitializerInjectionError(t *testing.T) {
-	services := service.NewServiceContainer()
+	services := service.New()
 	processes := NewProcessContainer()
 	health := NewHealth()
 	runner := NewRunner(processes, services, health)
@@ -331,7 +331,7 @@ func TestRunnerInitializerInjectionError(t *testing.T) {
 }
 
 func TestRunnerProcessInjectionError(t *testing.T) {
-	services := service.NewServiceContainer()
+	services := service.New()
 	processes := NewProcessContainer()
 	health := NewHealth()
 	runner := NewRunner(processes, services, health)
@@ -383,7 +383,7 @@ func TestRunnerProcessInjectionError(t *testing.T) {
 }
 
 func TestRunnerInitializerInitTimeout(t *testing.T) {
-	services := service.NewServiceContainer()
+	services := service.New()
 	processes := NewProcessContainer()
 	health := NewHealth()
 	clock := glock.NewMockClock()
@@ -416,7 +416,7 @@ func TestRunnerInitializerInitTimeout(t *testing.T) {
 }
 
 func TestRunnerFinalizerFinalizeTimeout(t *testing.T) {
-	services := service.NewServiceContainer()
+	services := service.New()
 	processes := NewProcessContainer()
 	health := NewHealth()
 	clock := glock.NewMockClock()
@@ -462,7 +462,7 @@ func TestRunnerFinalizerFinalizeTimeout(t *testing.T) {
 }
 
 func TestRunnerFinalizerError(t *testing.T) {
-	services := service.NewServiceContainer()
+	services := service.New()
 	processes := NewProcessContainer()
 	health := NewHealth()
 	runner := NewRunner(processes, services, health)
@@ -507,7 +507,7 @@ func TestRunnerFinalizerError(t *testing.T) {
 }
 
 func TestRunnerProcessInitTimeout(t *testing.T) {
-	services := service.NewServiceContainer()
+	services := service.New()
 	processes := NewProcessContainer()
 	health := NewHealth()
 	clock := glock.NewMockClock()
@@ -546,7 +546,7 @@ func TestRunnerProcessInitTimeout(t *testing.T) {
 }
 
 func TestRunnerInitializerError(t *testing.T) {
-	services := service.NewServiceContainer()
+	services := service.New()
 	processes := NewProcessContainer()
 	health := NewHealth()
 	runner := NewRunner(processes, services, health)
@@ -592,7 +592,7 @@ func TestRunnerInitializerError(t *testing.T) {
 }
 
 func TestRunnerProcessInitError(t *testing.T) {
-	services := service.NewServiceContainer()
+	services := service.New()
 	processes := NewProcessContainer()
 	health := NewHealth()
 	runner := NewRunner(processes, services, health)
@@ -654,7 +654,7 @@ func TestRunnerProcessInitError(t *testing.T) {
 }
 
 func TestRunnerProcessStartError(t *testing.T) {
-	services := service.NewServiceContainer()
+	services := service.New()
 	processes := NewProcessContainer()
 	health := NewHealth()
 	runner := NewRunner(processes, services, health)
@@ -723,7 +723,7 @@ func TestRunnerProcessStartError(t *testing.T) {
 }
 
 func TestRunnerProcessStopError(t *testing.T) {
-	services := service.NewServiceContainer()
+	services := service.New()
 	processes := NewProcessContainer()
 	health := NewHealth()
 	runner := NewRunner(processes, services, health)
@@ -785,7 +785,7 @@ func TestRunnerProcessStopError(t *testing.T) {
 }
 
 func TestContext(t *testing.T) {
-	services := service.NewServiceContainer()
+	services := service.New()
 	processes := NewProcessContainer()
 	health := NewHealth()
 	runner := NewRunner(processes, services, health)
