@@ -3,8 +3,6 @@ package process
 import (
 	"context"
 	"time"
-
-	"github.com/go-nacelle/log"
 )
 
 // ProcessConfigFunc is a function used to append additional metadata
@@ -23,7 +21,7 @@ func WithProcessName(name string) ProcessConfigFunc {
 
 // WithProcessLogFields sets additional fields sent with every log message
 // from this process.
-func WithProcessLogFields(fields log.LogFields) ProcessConfigFunc {
+func WithProcessLogFields(fields LogFields) ProcessConfigFunc {
 	return func(meta *ProcessMeta) { meta.logFields = fields }
 }
 

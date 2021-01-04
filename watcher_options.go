@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"github.com/derision-test/glock"
-	"github.com/go-nacelle/log"
 )
 
 // watcherConfigFunc is a function used to configure an instance
@@ -12,7 +11,7 @@ import (
 type watcherConfigFunc func(*processWatcher)
 
 // withWatcherLogger sets the logger used by the watcher.
-func withWatcherLogger(logger log.Logger) watcherConfigFunc {
+func withWatcherLogger(logger Logger) watcherConfigFunc {
 	return func(w *processWatcher) { w.logger = logger }
 }
 

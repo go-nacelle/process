@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/derision-test/glock"
-	"github.com/go-nacelle/log"
 )
 
 // processWatcher coordinates goroutines to detect when an application should
@@ -36,7 +35,7 @@ type processWatcher struct {
 	abortOnce       *sync.Once
 	shutdownOnce    *sync.Once
 	shutdownTimeout time.Duration
-	logger          log.Logger
+	logger          Logger
 	clock           glock.Clock
 }
 
@@ -60,7 +59,7 @@ func newWatcher(
 		haltOnce:       &sync.Once{},
 		abortOnce:      &sync.Once{},
 		shutdownOnce:   &sync.Once{},
-		logger:         log.NewNilLogger(),
+		logger:         NilLogger,
 		clock:          glock.NewRealClock(),
 	}
 

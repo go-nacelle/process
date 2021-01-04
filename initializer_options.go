@@ -3,8 +3,6 @@ package process
 import (
 	"context"
 	"time"
-
-	"github.com/go-nacelle/log"
 )
 
 // InitializerConfigFunc is a function used to append additional
@@ -23,7 +21,7 @@ func WithInitializerName(name string) InitializerConfigFunc {
 
 // WithInitializerLogFields sets additional fields sent with every log message
 // from this initializer.
-func WithInitializerLogFields(fields log.LogFields) InitializerConfigFunc {
+func WithInitializerLogFields(fields LogFields) InitializerConfigFunc {
 	return func(meta *InitializerMeta) { meta.logFields = fields }
 }
 

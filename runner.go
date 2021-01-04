@@ -9,8 +9,6 @@ import (
 	"time"
 
 	"github.com/derision-test/glock"
-
-	"github.com/go-nacelle/log"
 )
 
 // Runner wraps a process container. Given a loaded configuration object,
@@ -39,7 +37,7 @@ type runner struct {
 	errChan             chan errMeta
 	outChan             chan error
 	wg                  *sync.WaitGroup
-	logger              log.Logger
+	logger              Logger
 	clock               glock.Clock
 	startupTimeout      time.Duration
 	shutdownTimeout     time.Duration
@@ -53,7 +51,7 @@ type InjectHook func(NamedInjectable) error
 
 type namedInjectable interface {
 	Name() string
-	LogFields() log.LogFields
+	LogFields() LogFields
 	Wrapped() interface{}
 }
 type NamedInjectable = namedInjectable
@@ -61,14 +59,14 @@ type NamedInjectable = namedInjectable
 type namedInitializer interface {
 	Initializer
 	Name() string
-	LogFields() log.LogFields
+	LogFields() LogFields
 	InitTimeout() time.Duration
 }
 
 type namedFinalizer interface {
 	Initializer
 	Name() string
-	LogFields() log.LogFields
+	LogFields() LogFields
 	FinalizeTimeout() time.Duration
 	Wrapped() interface{}
 }
@@ -87,7 +85,7 @@ func NewRunner(
 		errChan:             errChan,
 		outChan:             outChan,
 		wg:                  &sync.WaitGroup{},
-		logger:              log.NewNilLogger(),
+		logger:              NilLogger,
 		clock:               glock.NewRealClock(),
 		healthCheckInterval: time.Second,
 	}
