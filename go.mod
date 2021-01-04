@@ -5,7 +5,7 @@ go 1.15
 require (
 	github.com/derision-test/glock v0.0.0-20200930205941-83423c0502c2
 	github.com/go-nacelle/log v1.1.3-0.20201221212124-3bec0a4c9b6d
-	github.com/go-nacelle/service v1.0.3-0.20210103234805-e89ec0da266c
+	github.com/go-nacelle/service v1.0.3-0.20210104035047-f3772ef7d912
 	github.com/mattn/go-colorable v0.1.8 // indirect
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d // indirect
 	github.com/stretchr/testify v1.6.1
