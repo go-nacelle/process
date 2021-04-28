@@ -102,7 +102,8 @@ func WithMetaFinalizeTimeout(timeout time.Duration) MetaConfigFunc {
 	return func(meta *metaOptions) { meta.finalizeTimeout = timeout }
 }
 
-func withMetaLogger(logger Logger) MetaConfigFunc {
+// WithMetaLogger configures a Meta instance with the given logger instance.
+func WithMetaLogger(logger Logger) MetaConfigFunc {
 	return func(meta *metaOptions) { meta.logger = logger }
 }
 
