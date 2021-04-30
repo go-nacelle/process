@@ -12,9 +12,9 @@ type State struct {
 	shutdownOnce sync.Once
 }
 
-// Run builds a machine to invoke the initializers and processes registered to the given
-// container. This method returns a state value that can be used to signal the application
-// to begin shutdown, and to block until the active processes have exited.
+// Run builds a machine to invoke the processes registered to the given container. This
+// method returns a state value that can be used to signal the application to begin shutdown,
+// and to block until the active processes have exited.
 func Run(ctx context.Context, container *Container, configs ...MachineConfigFunc) *State {
 	machineBuilder := newMachineBuilder(configs...)
 	runFunc := machineBuilder.buildRun(container)

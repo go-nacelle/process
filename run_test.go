@@ -120,12 +120,12 @@ func TestRunProcess(t *testing.T) {
 
 	process := NewMockMaximumProcess()
 	process.InitFunc.SetDefaultHook(traceInit(health, trace, "a", 0, nil))
-	process.StartFunc.SetDefaultHook(traceStart(health, trace, "a", 0, nil))
+	process.RunFunc.SetDefaultHook(traceRun(health, trace, "a", 0, nil))
 	process.StopFunc.SetDefaultHook(traceStop(trace, "a", 0, nil))
 	builder.RegisterProcess(process, WithMetaHealthKey(testHealthKey("a", 0)))
 
 	state := Run(context.Background(), builder.Build(WithMetaHealth(health)), WithHealth(health))
-	assertChannelContents(t, readStringChannel(forwardN(trace, 2)), seq("a.0.init", "a.0.start"))
+	assertChannelContents(t, readStringChannel(forwardN(trace, 2)), seq("a.0.init", "a.0.run"))
 	state.Shutdown(context.Background())
 	require.True(t, state.Wait(context.Background()))
 	close(trace)
@@ -139,13 +139,13 @@ func TestRunFinalizingProcess(t *testing.T) {
 
 	process := NewMockMaximumProcess()
 	process.InitFunc.SetDefaultHook(traceInit(health, trace, "a", 0, nil))
-	process.StartFunc.SetDefaultHook(traceStart(health, trace, "a", 0, nil))
+	process.RunFunc.SetDefaultHook(traceRun(health, trace, "a", 0, nil))
 	process.StopFunc.SetDefaultHook(traceStop(trace, "a", 0, nil))
 	process.FinalizeFunc.SetDefaultHook(traceFinalize(trace, "a", 0, nil))
 	builder.RegisterProcess(process, WithMetaHealthKey(testHealthKey("a", 0)))
 
 	state := Run(context.Background(), builder.Build(WithMetaHealth(health)), WithHealth(health))
-	assertChannelContents(t, readStringChannel(forwardN(trace, 2)), seq("a.0.init", "a.0.start"))
+	assertChannelContents(t, readStringChannel(forwardN(trace, 2)), seq("a.0.init", "a.0.run"))
 	state.Shutdown(context.Background())
 	require.True(t, state.Wait(context.Background()))
 	close(trace)
@@ -161,7 +161,7 @@ func TestRunMultipleProcesses(t *testing.T) {
 		for i := 1; i <= 3; i++ {
 			process := NewMockMaximumProcess()
 			process.InitFunc.SetDefaultHook(traceInit(health, trace, value, i, nil))
-			process.StartFunc.SetDefaultHook(traceStart(health, trace, value, i, nil))
+			process.RunFunc.SetDefaultHook(traceRun(health, trace, value, i, nil))
 			process.StopFunc.SetDefaultHook(traceStop(trace, value, i, nil))
 			builder.RegisterProcess(process, WithMetaPriority(i), WithMetaHealthKey(testHealthKey(value, i)))
 		}
@@ -171,11 +171,11 @@ func TestRunMultipleProcesses(t *testing.T) {
 
 	assertChannelContents(t, readStringChannel(forwardN(trace, 24)), seq(
 		unordered("a.1.init", "b.1.init", "c.1.init", "d.1.init"),
-		unordered("a.1.start", "b.1.start", "c.1.start", "d.1.start"),
+		unordered("a.1.run", "b.1.run", "c.1.run", "d.1.run"),
 		unordered("a.2.init", "b.2.init", "c.2.init", "d.2.init"),
-		unordered("a.2.start", "b.2.start", "c.2.start", "d.2.start"),
+		unordered("a.2.run", "b.2.run", "c.2.run", "d.2.run"),
 		unordered("a.3.init", "b.3.init", "c.3.init", "d.3.init"),
-		unordered("a.3.start", "b.3.start", "c.3.start", "d.3.start"),
+		unordered("a.3.run", "b.3.run", "c.3.run", "d.3.run"),
 	))
 
 	state.Shutdown(context.Background())
@@ -202,7 +202,7 @@ func TestRunMultipleFinalizingProcesses(t *testing.T) {
 		for i := 1; i <= 3; i++ {
 			process := NewMockMaximumProcess()
 			process.InitFunc.SetDefaultHook(traceInit(health, trace, value, i, nil))
-			process.StartFunc.SetDefaultHook(traceStart(health, trace, value, i, nil))
+			process.RunFunc.SetDefaultHook(traceRun(health, trace, value, i, nil))
 			process.StopFunc.SetDefaultHook(traceStop(trace, value, i, nil))
 			process.FinalizeFunc.SetDefaultHook(traceFinalize(trace, value, i, nil))
 			builder.RegisterProcess(process, WithMetaPriority(i), WithMetaHealthKey(testHealthKey(value, i)))
@@ -213,11 +213,11 @@ func TestRunMultipleFinalizingProcesses(t *testing.T) {
 
 	assertChannelContents(t, readStringChannel(forwardN(trace, 24)), seq(
 		unordered("a.1.init", "b.1.init", "c.1.init", "d.1.init"),
-		unordered("a.1.start", "b.1.start", "c.1.start", "d.1.start"),
+		unordered("a.1.run", "b.1.run", "c.1.run", "d.1.run"),
 		unordered("a.2.init", "b.2.init", "c.2.init", "d.2.init"),
-		unordered("a.2.start", "b.2.start", "c.2.start", "d.2.start"),
+		unordered("a.2.run", "b.2.run", "c.2.run", "d.2.run"),
 		unordered("a.3.init", "b.3.init", "c.3.init", "d.3.init"),
-		unordered("a.3.start", "b.3.start", "c.3.start", "d.3.start"),
+		unordered("a.3.run", "b.3.run", "c.3.run", "d.3.run"),
 	))
 
 	state.Shutdown(context.Background())
@@ -254,7 +254,7 @@ func TestRunMultipleFinalizingInitializersAndProcesses(t *testing.T) {
 		for i := 1; i <= 3; i++ {
 			process := NewMockMaximumProcess()
 			process.InitFunc.SetDefaultHook(traceInit(health, trace, value, i, nil))
-			process.StartFunc.SetDefaultHook(traceStart(health, trace, value, i, nil))
+			process.RunFunc.SetDefaultHook(traceRun(health, trace, value, i, nil))
 			process.StopFunc.SetDefaultHook(traceStop(trace, value, i, nil))
 			process.FinalizeFunc.SetDefaultHook(traceFinalize(trace, value, i, nil))
 			builder.RegisterProcess(process, WithMetaPriority(i), WithMetaHealthKey(testHealthKey(value, i)))
@@ -265,11 +265,11 @@ func TestRunMultipleFinalizingInitializersAndProcesses(t *testing.T) {
 
 	assertChannelContents(t, readStringChannel(forwardN(trace, 36)), seq(
 		unordered("w.1.init", "x.1.init", "y.1.init", "z.1.init", "a.1.init", "b.1.init", "c.1.init", "d.1.init"),
-		unordered("a.1.start", "b.1.start", "c.1.start", "d.1.start"),
+		unordered("a.1.run", "b.1.run", "c.1.run", "d.1.run"),
 		unordered("w.2.init", "x.2.init", "y.2.init", "z.2.init", "a.2.init", "b.2.init", "c.2.init", "d.2.init"),
-		unordered("a.2.start", "b.2.start", "c.2.start", "d.2.start"),
+		unordered("a.2.run", "b.2.run", "c.2.run", "d.2.run"),
 		unordered("w.3.init", "x.3.init", "y.3.init", "z.3.init", "a.3.init", "b.3.init", "c.3.init", "d.3.init"),
-		unordered("a.3.start", "b.3.start", "c.3.start", "d.3.start"),
+		unordered("a.3.run", "b.3.run", "c.3.run", "d.3.run"),
 	))
 
 	state.Shutdown(context.Background())
@@ -310,7 +310,7 @@ func TestRunProcessExitsWithEarlyExit(t *testing.T) {
 		for i := 1; i <= 3; i++ {
 			process := NewMockMaximumProcess()
 			process.InitFunc.SetDefaultHook(traceInit(health, trace, value, i, nil))
-			process.StartFunc.SetDefaultHook(traceStart(health, trace, value, i, nil))
+			process.RunFunc.SetDefaultHook(traceRun(health, trace, value, i, nil))
 			process.StopFunc.SetDefaultHook(traceStop(trace, value, i, nil))
 			process.FinalizeFunc.SetDefaultHook(traceFinalize(trace, value, i, nil))
 			builder.RegisterProcess(process, WithMetaPriority(i), WithEarlyExit(true), WithMetaHealthKey(testHealthKey(value, i)))
@@ -320,7 +320,7 @@ func TestRunProcessExitsWithEarlyExit(t *testing.T) {
 
 	//  0  1  2  3  4  5  6  7 ...
 	// a1 a2 a3 b1 b2 b3 c1 c2 ...
-	processes[7].StartFunc.SetDefaultHook(func(ctx context.Context) error {
+	processes[7].RunFunc.SetDefaultHook(func(ctx context.Context) error {
 		healthComponent, _ := health.Get("c.2")
 		healthComponent.Update(true)
 		trace <- "boom"
@@ -331,11 +331,11 @@ func TestRunProcessExitsWithEarlyExit(t *testing.T) {
 
 	assertChannelContents(t, readStringChannel(forwardN(trace, 36)), seq(
 		unordered("w.1.init", "x.1.init", "y.1.init", "z.1.init", "a.1.init", "b.1.init", "c.1.init", "d.1.init"),
-		unordered("a.1.start", "b.1.start", "c.1.start", "d.1.start"),
+		unordered("a.1.run", "b.1.run", "c.1.run", "d.1.run"),
 		unordered("w.2.init", "x.2.init", "y.2.init", "z.2.init", "a.2.init", "b.2.init", "c.2.init", "d.2.init"),
-		unordered("a.2.start", "b.2.start", "boom", "d.2.start"),
+		unordered("a.2.run", "b.2.run", "boom", "d.2.run"),
 		unordered("a.3.init", "b.3.init", "c.3.init", "d.3.init", "w.3.init", "x.3.init", "y.3.init", "z.3.init"),
-		unordered("a.3.start", "b.3.start", "c.3.start", "d.3.start"),
+		unordered("a.3.run", "b.3.run", "c.3.run", "d.3.run"),
 	))
 
 	state.Shutdown(context.Background())
@@ -376,7 +376,7 @@ func TestRunProcessExitsWithoutEarlyExit(t *testing.T) {
 		for i := 1; i <= 3; i++ {
 			process := NewMockMaximumProcess()
 			process.InitFunc.SetDefaultHook(traceInit(health, trace, value, i, nil))
-			process.StartFunc.SetDefaultHook(traceStart(health, trace, value, i, nil))
+			process.RunFunc.SetDefaultHook(traceRun(health, trace, value, i, nil))
 			process.StopFunc.SetDefaultHook(traceStop(trace, value, i, nil))
 			process.FinalizeFunc.SetDefaultHook(traceFinalize(trace, value, i, nil))
 			builder.RegisterProcess(process, WithMetaPriority(i), WithMetaHealthKey(testHealthKey(value, i)))
@@ -386,7 +386,7 @@ func TestRunProcessExitsWithoutEarlyExit(t *testing.T) {
 
 	//  0  1  2  3  4  5  6  7 ...
 	// a1 a2 a3 b1 b2 b3 c1 c2 ...
-	processes[7].StartFunc.SetDefaultHook(func(ctx context.Context) error {
+	processes[7].RunFunc.SetDefaultHook(func(ctx context.Context) error {
 		trace <- "boom"
 		return nil
 	})
@@ -395,9 +395,9 @@ func TestRunProcessExitsWithoutEarlyExit(t *testing.T) {
 
 	assertChannelContents(t, readStringChannel(forwardN(trace, 24)), seq(
 		unordered("w.1.init", "x.1.init", "y.1.init", "z.1.init", "a.1.init", "b.1.init", "c.1.init", "d.1.init"),
-		unordered("a.1.start", "b.1.start", "c.1.start", "d.1.start"),
+		unordered("a.1.run", "b.1.run", "c.1.run", "d.1.run"),
 		unordered("w.2.init", "x.2.init", "y.2.init", "z.2.init", "a.2.init", "b.2.init", "c.2.init", "d.2.init"),
-		unordered("a.2.start", "b.2.start", "boom", "d.2.start"),
+		unordered("a.2.run", "b.2.run", "boom", "d.2.run"),
 	))
 
 	require.False(t, state.Wait(context.Background()))
@@ -475,7 +475,7 @@ func TestRunProcessInitError(t *testing.T) {
 		for i := 1; i <= 3; i++ {
 			process := NewMockMaximumProcess()
 			process.InitFunc.SetDefaultHook(traceInit(health, trace, value, i, nil))
-			process.StartFunc.SetDefaultHook(traceStart(health, trace, value, i, nil))
+			process.RunFunc.SetDefaultHook(traceRun(health, trace, value, i, nil))
 			process.StopFunc.SetDefaultHook(traceStop(trace, value, i, nil))
 			process.FinalizeFunc.SetDefaultHook(traceFinalize(trace, value, i, nil))
 			builder.RegisterProcess(process, WithMetaPriority(i), WithMetaHealthKey(testHealthKey(value, i)))
@@ -494,7 +494,7 @@ func TestRunProcessInitError(t *testing.T) {
 
 	assertChannelContents(t, readStringChannel(forwardN(trace, 20)), seq(
 		unordered("w.1.init", "x.1.init", "y.1.init", "z.1.init", "a.1.init", "b.1.init", "c.1.init", "d.1.init"),
-		unordered("a.1.start", "b.1.start", "c.1.start", "d.1.start"),
+		unordered("a.1.run", "b.1.run", "c.1.run", "d.1.run"),
 		unordered("w.2.init", "x.2.init", "y.2.init", "z.2.init", "a.2.init", "b.2.init", "boom", "d.2.init"),
 	))
 
@@ -512,7 +512,7 @@ func TestRunProcessInitError(t *testing.T) {
 	))
 }
 
-func TestRunProcessStartError(t *testing.T) {
+func TestRunProcessRunError(t *testing.T) {
 	health := NewHealth()
 	trace := make(chan string, 72)
 	builder := NewContainerBuilder()
@@ -531,7 +531,7 @@ func TestRunProcessStartError(t *testing.T) {
 		for i := 1; i <= 3; i++ {
 			process := NewMockMaximumProcess()
 			process.InitFunc.SetDefaultHook(traceInit(health, trace, value, i, nil))
-			process.StartFunc.SetDefaultHook(traceStart(health, trace, value, i, nil))
+			process.RunFunc.SetDefaultHook(traceRun(health, trace, value, i, nil))
 			process.StopFunc.SetDefaultHook(traceStop(trace, value, i, nil))
 			process.FinalizeFunc.SetDefaultHook(traceFinalize(trace, value, i, nil))
 			builder.RegisterProcess(process, WithMetaPriority(i), WithMetaHealthKey(testHealthKey(value, i)))
@@ -541,7 +541,7 @@ func TestRunProcessStartError(t *testing.T) {
 
 	//  0  1  2  3  4  5  6  7 ...
 	// a1 a2 a3 b1 b2 b3 c1 c2 ...
-	processes[7].StartFunc.SetDefaultHook(func(ctx context.Context) error {
+	processes[7].RunFunc.SetDefaultHook(func(ctx context.Context) error {
 		trace <- "boom"
 		return testErr1
 	})
@@ -550,9 +550,9 @@ func TestRunProcessStartError(t *testing.T) {
 
 	assertChannelContents(t, readStringChannel(forwardN(trace, 24)), seq(
 		unordered("w.1.init", "x.1.init", "y.1.init", "z.1.init", "a.1.init", "b.1.init", "c.1.init", "d.1.init"),
-		unordered("a.1.start", "b.1.start", "c.1.start", "d.1.start"),
+		unordered("a.1.run", "b.1.run", "c.1.run", "d.1.run"),
 		unordered("w.2.init", "x.2.init", "y.2.init", "z.2.init", "a.2.init", "b.2.init", "c.2.init", "d.2.init"),
-		unordered("a.2.start", "b.2.start", "boom", "d.2.start"),
+		unordered("a.2.run", "b.2.run", "boom", "d.2.run"),
 	))
 
 	require.False(t, state.Wait(context.Background()))
@@ -592,7 +592,7 @@ func TestRunErrorsDuringShutdown(t *testing.T) {
 		for i := 1; i <= 3; i++ {
 			process := NewMockMaximumProcess()
 			process.InitFunc.SetDefaultHook(traceInit(health, trace, value, i, nil))
-			process.StartFunc.SetDefaultHook(traceStart(health, trace, value, i, nil))
+			process.RunFunc.SetDefaultHook(traceRun(health, trace, value, i, nil))
 			process.StopFunc.SetDefaultHook(traceStop(trace, value, i, fmt.Errorf("%s.%d", value, i)))
 			process.FinalizeFunc.SetDefaultHook(traceFinalize(trace, value, i, fmt.Errorf("%s.%d", value, i)))
 			builder.RegisterProcess(process, WithMetaPriority(i), WithMetaHealthKey(testHealthKey(value, i)))
@@ -603,11 +603,11 @@ func TestRunErrorsDuringShutdown(t *testing.T) {
 
 	assertChannelContents(t, readStringChannel(forwardN(trace, 36)), []interface{}{
 		unordered("w.1.init", "x.1.init", "y.1.init", "z.1.init", "a.1.init", "b.1.init", "c.1.init", "d.1.init"),
-		unordered("a.1.start", "b.1.start", "c.1.start", "d.1.start"),
+		unordered("a.1.run", "b.1.run", "c.1.run", "d.1.run"),
 		unordered("a.2.init", "b.2.init", "c.2.init", "d.2.init", "w.2.init", "x.2.init", "y.2.init", "z.2.init"),
-		unordered("a.2.start", "b.2.start", "c.2.start", "d.2.start"),
+		unordered("a.2.run", "b.2.run", "c.2.run", "d.2.run"),
 		unordered("w.3.init", "x.3.init", "y.3.init", "z.3.init", "a.3.init", "b.3.init", "c.3.init", "d.3.init"),
-		unordered("a.3.start", "b.3.start", "c.3.start", "d.3.start"),
+		unordered("a.3.run", "b.3.run", "c.3.run", "d.3.run"),
 	})
 
 	state.Shutdown(context.Background())

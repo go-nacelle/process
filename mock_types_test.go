@@ -17,9 +17,9 @@ type MockMaximumProcess struct {
 	// InitFunc is an instance of a mock function object controlling the
 	// behavior of the method Init.
 	InitFunc *MaximumProcessInitFunc
-	// StartFunc is an instance of a mock function object controlling the
-	// behavior of the method Start.
-	StartFunc *MaximumProcessStartFunc
+	// RunFunc is an instance of a mock function object controlling the
+	// behavior of the method Run.
+	RunFunc *MaximumProcessRunFunc
 	// StopFunc is an instance of a mock function object controlling the
 	// behavior of the method Stop.
 	StopFunc *MaximumProcessStopFunc
@@ -39,7 +39,7 @@ func NewMockMaximumProcess() *MockMaximumProcess {
 				return nil
 			},
 		},
-		StartFunc: &MaximumProcessStartFunc{
+		RunFunc: &MaximumProcessRunFunc{
 			defaultHook: func(context.Context) error {
 				return nil
 			},
@@ -58,7 +58,7 @@ func NewMockMaximumProcess() *MockMaximumProcess {
 type surrogateMockMaximumProcess interface {
 	Finalize(context.Context) error
 	Init(context.Context) error
-	Start(context.Context) error
+	Run(context.Context) error
 	Stop(context.Context) error
 }
 
@@ -73,8 +73,8 @@ func NewMockMaximumProcessFrom(i surrogateMockMaximumProcess) *MockMaximumProces
 		InitFunc: &MaximumProcessInitFunc{
 			defaultHook: i.Init,
 		},
-		StartFunc: &MaximumProcessStartFunc{
-			defaultHook: i.Start,
+		RunFunc: &MaximumProcessRunFunc{
+			defaultHook: i.Run,
 		},
 		StopFunc: &MaximumProcessStopFunc{
 			defaultHook: i.Stop,
@@ -288,35 +288,35 @@ func (c MaximumProcessInitFuncCall) Results() []interface{} {
 	return []interface{}{c.Result0}
 }
 
-// MaximumProcessStartFunc describes the behavior when the Start method of
-// the parent MockMaximumProcess instance is invoked.
-type MaximumProcessStartFunc struct {
+// MaximumProcessRunFunc describes the behavior when the Run method of the
+// parent MockMaximumProcess instance is invoked.
+type MaximumProcessRunFunc struct {
 	defaultHook func(context.Context) error
 	hooks       []func(context.Context) error
-	history     []MaximumProcessStartFuncCall
+	history     []MaximumProcessRunFuncCall
 	mutex       sync.Mutex
 }
 
-// Start delegates to the next hook function in the queue and stores the
+// Run delegates to the next hook function in the queue and stores the
 // parameter and result values of this invocation.
-func (m *MockMaximumProcess) Start(v0 context.Context) error {
-	r0 := m.StartFunc.nextHook()(v0)
-	m.StartFunc.appendCall(MaximumProcessStartFuncCall{v0, r0})
+func (m *MockMaximumProcess) Run(v0 context.Context) error {
+	r0 := m.RunFunc.nextHook()(v0)
+	m.RunFunc.appendCall(MaximumProcessRunFuncCall{v0, r0})
 	return r0
 }
 
-// SetDefaultHook sets function that is called when the Start method of the
+// SetDefaultHook sets function that is called when the Run method of the
 // parent MockMaximumProcess instance is invoked and the hook queue is
 // empty.
-func (f *MaximumProcessStartFunc) SetDefaultHook(hook func(context.Context) error) {
+func (f *MaximumProcessRunFunc) SetDefaultHook(hook func(context.Context) error) {
 	f.defaultHook = hook
 }
 
 // PushHook adds a function to the end of hook queue. Each invocation of the
-// Start method of the parent MockMaximumProcess instance invokes the hook
-// at the front of the queue and discards it. After the queue is empty, the
+// Run method of the parent MockMaximumProcess instance invokes the hook at
+// the front of the queue and discards it. After the queue is empty, the
 // default hook function is invoked for any future action.
-func (f *MaximumProcessStartFunc) PushHook(hook func(context.Context) error) {
+func (f *MaximumProcessRunFunc) PushHook(hook func(context.Context) error) {
 	f.mutex.Lock()
 	f.hooks = append(f.hooks, hook)
 	f.mutex.Unlock()
@@ -324,7 +324,7 @@ func (f *MaximumProcessStartFunc) PushHook(hook func(context.Context) error) {
 
 // SetDefaultReturn calls SetDefaultDefaultHook with a function that returns
 // the given values.
-func (f *MaximumProcessStartFunc) SetDefaultReturn(r0 error) {
+func (f *MaximumProcessRunFunc) SetDefaultReturn(r0 error) {
 	f.SetDefaultHook(func(context.Context) error {
 		return r0
 	})
@@ -332,13 +332,13 @@ func (f *MaximumProcessStartFunc) SetDefaultReturn(r0 error) {
 
 // PushReturn calls PushDefaultHook with a function that returns the given
 // values.
-func (f *MaximumProcessStartFunc) PushReturn(r0 error) {
+func (f *MaximumProcessRunFunc) PushReturn(r0 error) {
 	f.PushHook(func(context.Context) error {
 		return r0
 	})
 }
 
-func (f *MaximumProcessStartFunc) nextHook() func(context.Context) error {
+func (f *MaximumProcessRunFunc) nextHook() func(context.Context) error {
 	f.mutex.Lock()
 	defer f.mutex.Unlock()
 
@@ -351,26 +351,26 @@ func (f *MaximumProcessStartFunc) nextHook() func(context.Context) error {
 	return hook
 }
 
-func (f *MaximumProcessStartFunc) appendCall(r0 MaximumProcessStartFuncCall) {
+func (f *MaximumProcessRunFunc) appendCall(r0 MaximumProcessRunFuncCall) {
 	f.mutex.Lock()
 	f.history = append(f.history, r0)
 	f.mutex.Unlock()
 }
 
-// History returns a sequence of MaximumProcessStartFuncCall objects
+// History returns a sequence of MaximumProcessRunFuncCall objects
 // describing the invocations of this function.
-func (f *MaximumProcessStartFunc) History() []MaximumProcessStartFuncCall {
+func (f *MaximumProcessRunFunc) History() []MaximumProcessRunFuncCall {
 	f.mutex.Lock()
-	history := make([]MaximumProcessStartFuncCall, len(f.history))
+	history := make([]MaximumProcessRunFuncCall, len(f.history))
 	copy(history, f.history)
 	f.mutex.Unlock()
 
 	return history
 }
 
-// MaximumProcessStartFuncCall is an object that describes an invocation of
-// method Start on an instance of MockMaximumProcess.
-type MaximumProcessStartFuncCall struct {
+// MaximumProcessRunFuncCall is an object that describes an invocation of
+// method Run on an instance of MockMaximumProcess.
+type MaximumProcessRunFuncCall struct {
 	// Arg0 is the value of the 1st argument passed to this method
 	// invocation.
 	Arg0 context.Context
@@ -381,13 +381,13 @@ type MaximumProcessStartFuncCall struct {
 
 // Args returns an interface slice containing the arguments of this
 // invocation.
-func (c MaximumProcessStartFuncCall) Args() []interface{} {
+func (c MaximumProcessRunFuncCall) Args() []interface{} {
 	return []interface{}{c.Arg0}
 }
 
 // Results returns an interface slice containing the results of this
 // invocation.
-func (c MaximumProcessStartFuncCall) Results() []interface{} {
+func (c MaximumProcessRunFuncCall) Results() []interface{} {
 	return []interface{}{c.Result0}
 }
 

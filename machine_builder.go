@@ -30,29 +30,29 @@ func newMachineBuilder(configs ...MachineConfigFunc) *machineBuilder {
 	return b
 }
 
-// buildRun creates a function that initializers, runs, and monitors the initializers
-// and processes registered to the given container. For each priority from low values
-// to high values, the function will:
+// buildRun creates a function that initializers, runs, and monitors the processes
+// registered to the given container. For each priority from low values to high values,
+// the function will:
 //
-// 1. Run the inject hook for each initializer and process registered to the target
-// priority. If the injecter provided to the builder is nil, this step is skipped.
-// The injecter will assign fields of the initializer and processes registered at this
-// priority. Initializers registered to lower priorities may provide values to be
-// injected into initializers and processes registered to higher priorities.
+// 1. Run the inject hook for each process registered to the target priority. If the
+// injecter provided to the builder is nil, this step is skipped. The injecter will
+// assign fields of the processes registered at this priority. Initializers registered
+// to lower priorities may provide values to be injected into processes registered to
+// higher priorities.
 //
-// 2. Initialize each initializer and process. These methods are invoked in parallel.
-// If an error occurs during initialization, the application will skip the following
-// step for this and remaining priority groups.
+// 2. Initialize each process. These methods are invoked in parallel. If an error occurs
+// during initialization, the application will skip the following step for this and
+// remaining priority groups.
 //
 // 3. Start each process. These methods are invoked in parallel as well. As processes
 // are expected to be long-running (with exceptions), this phase has no obvious end.
-// The next priority group of initializers and processes will begin to execute in the
-// same manner after all of the processes registered to this priority have started and
-// the process becomes healthy (or the health timeout for an unhealthyprocess elapses).
+// The next priority group of processes will begin to execute in the same manner after
+// all of the processes registered to this priority have started and the process becomes
+// healthy (or the health timeout for an unhealthyprocess elapses).
 //
-// On shutdown due to a user signal, an explicit request, or an initializer or process
-// error, all of the initializers and processes registered to the given container are
-// finalized. All finalizer methods are invoked in parallel.
+// On shutdown due to a user signal, an explicit request, or a process error, all of the
+// processes registered to the given container are finalized. All finalizer methods are
+// invoked in parallel.
 func (b *machineBuilder) buildRun(container *Container) streamErrorFunc {
 	n := 0
 	for _, meta := range container.meta {
@@ -63,7 +63,7 @@ func (b *machineBuilder) buildRun(container *Container) streamErrorFunc {
 	processErrors := make(chan error, n)
 	healthCheckCtx, healthCheckCancel := context.WithCancel(context.Background())
 
-	var initAndStartEachPriority []streamErrorFunc
+	var initAndRunEachPriority []streamErrorFunc
 	for _, priority := range container.priorities {
 		meta := container.meta[priority]
 
@@ -109,14 +109,14 @@ func (b *machineBuilder) buildRun(container *Container) streamErrorFunc {
 			))
 		}
 
-		startAtPriority := mapMetaParallel(meta, func(meta *Meta) streamErrorFunc {
+		runAtPriority := mapMetaParallel(meta, func(meta *Meta) streamErrorFunc {
 			return func(ctx context.Context) <-chan error {
 				wg.Add(1)
 
 				go func() {
 					defer wg.Done()
 
-					if err := meta.Start(ctx); err != nil {
+					if err := meta.Run(ctx); err != nil {
 						healthCheckCancel()
 						processErrors <- err
 					}
@@ -170,9 +170,9 @@ func (b *machineBuilder) buildRun(container *Container) streamErrorFunc {
 			}
 		})
 
-		initAndStartEachPriority = append(initAndStartEachPriority, chain(
+		initAndRunEachPriority = append(initAndRunEachPriority, chain(
 			chain(initEachPriority...),
-			startAtPriority,
+			runAtPriority,
 			waitUntilHealthy,
 		))
 	}
@@ -195,16 +195,15 @@ func (b *machineBuilder) buildRun(container *Container) streamErrorFunc {
 	})
 
 	return sequence(
-		chain(initAndStartEachPriority...),
+		chain(initAndRunEachPriority...),
 		forwardProcessErrors,
 		runFinalizers,
 	)
 }
 
-// buildShutdown creates a function that invokes the Stop function of each initializer or
-// process registered to the given container. Processes registered to the same priority are
-// stopped in parallel and processes with a higher priority are stopped before those registered
-// to a lower priority.
+// buildShutdown creates a function that invokes the Stop function of each process registered
+//to the given container. Processes registered to the same priority are stopped in parallel and
+// processes with a higher priority are stopped before those registered to a lower priority.
 func (b *machineBuilder) buildShutdown(container *Container) streamErrorFunc {
 	var stopEachPriority []streamErrorFunc
 	for i := len(container.priorities) - 1; i >= 0; i-- {

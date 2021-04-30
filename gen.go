@@ -4,7 +4,7 @@ package process
 
 type maximumProcess interface {
 	Initializer
-	Process
-	Stoppable
+	Runner
+	Stopper
 	Finalizer
 }

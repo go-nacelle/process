@@ -5,18 +5,18 @@ import (
 	"fmt"
 )
 
-// ErrUnexpectedReturn occurs when a process returns from Start before the process
+// ErrUnexpectedReturn occurs when a process returns from Run before the process
 // runner enters shutdown. This error does not occur if the process is marked with
 // early exit.
-var ErrUnexpectedReturn = errors.New("unexpected return from start")
+var ErrUnexpectedReturn = errors.New("unexpected return from process")
 
 // ErrStartupTimeout occurs when the health items associated with a process do not
 // report healthy within the configured timeout.
-var ErrStartupTimeout = errors.New("start did not become healthy within timeout")
+var ErrStartupTimeout = errors.New("process did not become healthy within timeout")
 
-// ErrShutdownTimeout occurs when a process does not return from Start after a call
+// ErrShutdownTimeout occurs when a process does not return from Run after a call
 // to Stop and a context cancellation within the configured timeout.
-var ErrShutdownTimeout = errors.New("start refusing to shut down; abandoning goroutine")
+var ErrShutdownTimeout = errors.New("process refusing to shut down; abandoning goroutine")
 
 // ErrHealthCheckCanceled occurs when a process's initial health check is cancelled
 // due to another process exiting in a non-healthy way.

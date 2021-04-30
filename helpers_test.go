@@ -36,10 +36,10 @@ func forwardN(ch <-chan string, n int) <-chan string {
 	return ch2
 }
 
-// traceInit returns a function that can be used as an initializer or process's Init method.
-// The returned function will register an initially unhealthy health component if the given
-// health value is non-nil. The returned function will write a unique string built from the
-// given name and index to the given channel once it has been invoked.
+// traceInit returns a function that can be used as an process's Init method. The returned function
+// will register an initially unhealthy health component if the given health value is non-nil. The
+// returned function will write a unique string built from the given name and index to the given
+// channel once it has been invoked.
 func traceInit(health *Health, trace chan<- string, name string, index int, err error) singleErrorFunc {
 	return func(ctx context.Context) error {
 		if health != nil {
@@ -56,13 +56,13 @@ func traceInit(health *Health, trace chan<- string, name string, index int, err 
 	}
 }
 
-// traceStart returns a function that can be used as a process's Start method. The returned
+// traceRun returns a function that can be used as a process's Run method. The returned
 // function will update the health component registered in traceInit if the given health value
 // is non-nil. The returned function will write a unique string built from the given name and
 // index to the given channel once it has been invoked.
-func traceStart(health *Health, trace chan<- string, name string, index int, err error) singleErrorFunc {
+func traceRun(health *Health, trace chan<- string, name string, index int, err error) singleErrorFunc {
 	return func(ctx context.Context) error {
-		trace <- fmt.Sprintf("%s.%d.start", name, index)
+		trace <- fmt.Sprintf("%s.%d.run", name, index)
 		if err != nil {
 			return err
 		}
@@ -96,9 +96,9 @@ func traceStop(trace chan<- string, name string, index int, err error) singleErr
 	}
 }
 
-// traceFinalize returns a function that can be used as an initializer or process's Finalize method.
-// The returned function  will write a unique string built from the given name and index to the given
-// channel once it has been invoked.
+// traceFinalize returns a function that can be used as a process's Finalize method. The returned
+// function  will write a unique string built from the given name and index to the given channel
+// once it has been invoked.
 func traceFinalize(trace chan<- string, name string, index int, err error) singleErrorFunc {
 	return func(ctx context.Context) error {
 		trace <- fmt.Sprintf("%s.%d.finalize", name, index)

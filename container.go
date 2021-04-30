@@ -1,8 +1,7 @@
 package process
 
-// Container is an immutable container used to hold registered initializers
-// and processes. A container instance is constructed from a mutable container
-// builder.
+// Container is an immutable container used to hold registered processes.
+// A container instance is constructed from a mutable container builder.
 type Container struct {
 	meta       map[int][]*Meta
 	priorities []int

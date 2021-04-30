@@ -2,16 +2,15 @@ package process
 
 import "sort"
 
-// ContainerBuilder is a mutable container used to register Initializers
-// and Processes at application boot. The container builder can be frozen
-// into an immutable container.
+// ContainerBuilder is a mutable container used to register processes at
+// application boot. The container builder can be frozen into an immutable
+// container.
 type ContainerBuilder struct {
 	registrations []registration
 }
 
-// registration is a raw initializer or process value paired with the set of
-// configuration values supppiled when the value ws first registered to a
-// container builder.
+// registration is a raw process value paired with the set of configuration
+// values supppiled when the value ws first registered to a container builder.
 type registration struct {
 	wrapped interface{}
 	configs []MetaConfigFunc
@@ -33,8 +32,7 @@ func (b *ContainerBuilder) RegisterProcess(wrapped interface{}, configs ...MetaC
 }
 
 // Build creates a frozen and immutable version of the container containing
-// all of the initializers and processes registered to the container builder
-// thus far.
+// all of the processes registered to the container builder thus far.
 func (b *ContainerBuilder) Build(configs ...MetaConfigFunc) *Container {
 	processes := map[int][]*Meta{}
 	for _, registration := range b.registrations {

@@ -42,7 +42,7 @@ func WithMetaHealthKey(healthKeys ...interface{}) MetaConfigFunc {
 }
 
 // WithMetaContext configures a Meta instance to use the context returned by the given
-// function when invoking the wrapped value's underlying Init, Start, Stop, or Finalize
+// function when invoking the wrapped value's underlying Init, Run, Stop, or Finalize
 // methods.
 func WithMetaContext(f func(ctx context.Context) context.Context) MetaConfigFunc {
 	return func(meta *metaOptions) { meta.contextFilter = f }
@@ -64,7 +64,7 @@ func WithMetadata(metadata map[string]interface{}) MetaConfigFunc {
 }
 
 // WithEarlyExit sets the flag that determines if the process is allowed to return from
-// the Start method (with a nil error value) before the Stop method is called. The default
+// the Run method (with a nil error value) before the Stop method is called. The default
 // behavior is to treat exiting processes as erroneous.
 func WithEarlyExit(allowed bool) MetaConfigFunc {
 	return func(meta *metaOptions) { meta.allowEarlyExit = allowed }
@@ -77,7 +77,7 @@ func WithMetaInitTimeout(timeout time.Duration) MetaConfigFunc {
 }
 
 // WithMetaStartupTimeout configures a Meta instance with the given timeout for the
-// time between the wrapped value's Start method being invoked and the process becoming
+// time between the wrapped value's Run method being invoked and the process becoming
 // healthy.
 func WithMetaStartupTimeout(timeout time.Duration) MetaConfigFunc {
 	return func(meta *metaOptions) { meta.startupTimeout = timeout }
@@ -90,7 +90,7 @@ func WithMetaStopTimeout(timeout time.Duration) MetaConfigFunc {
 }
 
 // WithMetaShutdownTimeout configures a Meta instance with the given timeout for the
-// time between the wrapped value's Stop method being invoked and the process's Start
+// time between the wrapped value's Stop method being invoked and the process's Run
 // method unblocking.
 func WithMetaShutdownTimeout(timeout time.Duration) MetaConfigFunc {
 	return func(meta *metaOptions) { meta.shutdownTimeout = timeout }

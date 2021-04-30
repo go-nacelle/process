@@ -40,19 +40,19 @@ func TestMetaInitTimeout(t *testing.T) {
 	assertChannelContents(t, readErrorChannel(results), seq(errors.New("test-service: init timeout")))
 }
 
-func TestMetaStart(t *testing.T) {
+func TestMetaRun(t *testing.T) {
 	wrapped := NewMockMaximumProcess()
-	startHook, started := newSingalingSingleErrorFunc()
-	wrapped.StartFunc.SetDefaultHook(startHook)
+	runHook, started := newSingalingSingleErrorFunc()
+	wrapped.RunFunc.SetDefaultHook(runHook)
 	meta := newMeta(wrapped, WithMetaName("test-service"))
 
 	assert.Nil(t, meta.Init(context.Background()))
-	results := runAsync(context.Background(), meta.Start)
+	results := runAsync(context.Background(), meta.Run)
 
 	<-started
 	assert.Nil(t, meta.Stop(context.Background()))
 	assertChannelContents(t, readErrorChannel(results), seq(nil))
-	mockassert.CalledOnce(t, wrapped.StartFunc)
+	mockassert.CalledOnce(t, wrapped.RunFunc)
 	mockassert.CalledOnce(t, wrapped.StopFunc)
 }
 
@@ -63,12 +63,12 @@ func TestMetaStartupTimeout(t *testing.T) {
 
 	clock := glock.NewMockClock()
 	wrapped := NewMockMaximumProcess()
-	startHook, started := newSingalingSingleErrorFunc()
-	wrapped.StartFunc.SetDefaultHook(startHook)
+	runHook, started := newSingalingSingleErrorFunc()
+	wrapped.RunFunc.SetDefaultHook(runHook)
 	meta := newMeta(wrapped, WithMetaName("test-service"), WithMetaHealth(health), WithMetaHealthKey("test"), WithMetaStartupTimeout(time.Second*5), withMetaStartupClock(clock))
 
 	assert.Nil(t, meta.Init(context.Background()))
-	results := runAsync(context.Background(), meta.Start)
+	results := runAsync(context.Background(), meta.Run)
 
 	<-started
 	clock.BlockingAdvance(time.Second)
@@ -80,54 +80,54 @@ func TestMetaStartupTimeout(t *testing.T) {
 	assertChannelContents(t, readErrorChannel(results), seq(ErrStartupTimeout))
 }
 
-func TestMetaStartTwice(t *testing.T) {
+func TestMetaRunTwice(t *testing.T) {
 	wrapped := NewMockMaximumProcess()
-	startHook, started := newSingalingSingleErrorFunc()
-	wrapped.StartFunc.SetDefaultHook(startHook)
+	runHook, started := newSingalingSingleErrorFunc()
+	wrapped.RunFunc.SetDefaultHook(runHook)
 	meta := newMeta(wrapped, WithMetaName("test-service"))
 
 	assert.Nil(t, meta.Init(context.Background()))
-	results := runAsync(context.Background(), meta.Start)
+	results := runAsync(context.Background(), meta.Run)
 
 	<-started
 	assert.Nil(t, meta.Stop(context.Background()))
 	assertChannelContents(t, readErrorChannel(results), seq(nil))
-	mockassert.CalledOnce(t, wrapped.StartFunc)
+	mockassert.CalledOnce(t, wrapped.RunFunc)
 
-	results = runAsync(context.Background(), meta.Start)
+	results = runAsync(context.Background(), meta.Run)
 	assertChannelContents(t, readErrorChannel(results), seq(nil))
-	mockassert.CalledOnce(t, wrapped.StartFunc)
+	mockassert.CalledOnce(t, wrapped.RunFunc)
 }
 
 func TestMetaStopTimeout(t *testing.T) {
 	clock := glock.NewMockClock()
 	wrapped := NewMockMaximumProcess()
-	startHook, started := newSingalingSingleErrorFunc()
-	wrapped.StartFunc.SetDefaultHook(startHook)
+	runHook, started := newSingalingSingleErrorFunc()
+	wrapped.RunFunc.SetDefaultHook(runHook)
 	stopHook, _ := newBlockingSingleErrorFunc()
 	wrapped.StopFunc.SetDefaultHook(stopHook)
 	meta := newMeta(wrapped, WithMetaName("test-service"), WithMetaStopTimeout(time.Second*5), withMetaStopClock(clock))
 
 	assert.Nil(t, meta.Init(context.Background()))
-	startResults := runAsync(context.Background(), meta.Start)
+	runResults := runAsync(context.Background(), meta.Run)
 
 	<-started
 	stopResults := runAsync(context.Background(), meta.Stop)
 
 	clock.BlockingAdvance(time.Second * 5)
-	assertChannelContents(t, readErrorChannel(startResults), seq(nil))
+	assertChannelContents(t, readErrorChannel(runResults), seq(nil))
 	assertChannelContents(t, readErrorChannel(stopResults), seq(errors.New("test-service: stop timeout")))
 }
 
 func TestMetaShutdownTimeout(t *testing.T) {
 	clock := glock.NewMockClock()
 	wrapped := NewMockMaximumProcess()
-	startHook, started := newBlockingSingleErrorFunc()
-	wrapped.StartFunc.SetDefaultHook(startHook)
+	runHook, started := newBlockingSingleErrorFunc()
+	wrapped.RunFunc.SetDefaultHook(runHook)
 	meta := newMeta(wrapped, WithMetaName("test-service"), WithMetaShutdownTimeout(time.Second*5), withMetaShutdownClock(clock))
 
 	assert.Nil(t, meta.Init(context.Background()))
-	results := runAsync(context.Background(), meta.Start)
+	results := runAsync(context.Background(), meta.Run)
 
 	<-started
 	assert.Nil(t, meta.Stop(context.Background()))
@@ -136,25 +136,25 @@ func TestMetaShutdownTimeout(t *testing.T) {
 	assertChannelContents(t, readErrorChannel(results), seq(ErrShutdownTimeout))
 }
 
-func TestMetaStartError(t *testing.T) {
+func TestMetaRunError(t *testing.T) {
 	wrapped := NewMockMaximumProcess()
-	wrapped.StartFunc.SetDefaultReturn(testErr1)
+	wrapped.RunFunc.SetDefaultReturn(testErr1)
 	meta := newMeta(wrapped, WithMetaName("test-service"))
 
 	assert.Nil(t, meta.Init(context.Background()))
-	assert.EqualError(t, meta.Start(context.Background()), "test-service: start failed (oops1)")
-	mockassert.CalledOnce(t, wrapped.StartFunc)
+	assert.EqualError(t, meta.Run(context.Background()), "test-service: run failed (oops1)")
+	mockassert.CalledOnce(t, wrapped.RunFunc)
 }
 
 func TestMetaStopError(t *testing.T) {
 	wrapped := NewMockMaximumProcess()
-	startHook, scheduled := newSingalingSingleErrorFunc()
-	wrapped.StartFunc.SetDefaultHook(startHook)
+	runHook, scheduled := newSingalingSingleErrorFunc()
+	wrapped.RunFunc.SetDefaultHook(runHook)
 	wrapped.StopFunc.SetDefaultReturn(testErr1)
 	meta := newMeta(wrapped, WithMetaName("test-service"))
 
 	assert.Nil(t, meta.Init(context.Background()))
-	results := runAsync(context.Background(), meta.Start)
+	results := runAsync(context.Background(), meta.Run)
 
 	<-scheduled
 	assert.EqualError(t, meta.Stop(context.Background()), "test-service: stop failed (oops1)")
@@ -162,30 +162,30 @@ func TestMetaStopError(t *testing.T) {
 	mockassert.CalledOnce(t, wrapped.StopFunc)
 }
 
-func TestMetaStartExitsWithEarlyExit(t *testing.T) {
+func TestMetaRunExitsWithEarlyExit(t *testing.T) {
 	wrapped := NewMockMaximumProcess()
 	meta := newMeta(wrapped, WithMetaName("test-service"), WithEarlyExit(true))
 
 	assert.Nil(t, meta.Init(context.Background()))
-	assert.Nil(t, meta.Start(context.Background()))
-	mockassert.CalledOnce(t, wrapped.StartFunc)
+	assert.Nil(t, meta.Run(context.Background()))
+	mockassert.CalledOnce(t, wrapped.RunFunc)
 }
 
-func TestMetaStartExitsWithoutEarlyExit(t *testing.T) {
+func TestMetaRunExitsWithoutEarlyExit(t *testing.T) {
 	wrapped := NewMockMaximumProcess()
 	meta := newMeta(wrapped, WithMetaName("test-service"))
 
 	assert.Nil(t, meta.Init(context.Background()))
-	assert.Equal(t, ErrUnexpectedReturn, meta.Start(context.Background()))
-	mockassert.CalledOnce(t, wrapped.StartFunc)
+	assert.Equal(t, ErrUnexpectedReturn, meta.Run(context.Background()))
+	mockassert.CalledOnce(t, wrapped.RunFunc)
 }
 
-func TestMetaStartCalledUninitialized(t *testing.T) {
+func TestMetaRunCalledUninitialized(t *testing.T) {
 	wrapped := NewMockMaximumProcess()
 	meta := newMeta(wrapped)
 
-	assert.Nil(t, meta.Start(context.Background()))
-	mockassert.NotCalled(t, wrapped.StartFunc)
+	assert.Nil(t, meta.Run(context.Background()))
+	mockassert.NotCalled(t, wrapped.RunFunc)
 }
 
 func TestMetaStopCalledUninitialized(t *testing.T) {

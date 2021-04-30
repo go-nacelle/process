@@ -9,9 +9,9 @@ import (
 	"github.com/derision-test/glock"
 )
 
-// Meta is a wrapper around a process or initializer value. This wrapper ensures that
-// the configured receiver's methods are only called once and not called from an invalid
-// state (e.g. Start called before Init or after a failed Init).
+// Meta is a wrapper around a process value. This wrapper ensures that the configured
+// receiver's methods are only called once and not called from an invalid state
+// (e.g. Run called before Init or after a failed Init).
 type Meta struct {
 	wrapped     interface{}
 	options     *metaOptions
@@ -54,8 +54,7 @@ func (m *Meta) Wrapped() interface{} {
 	return m.wrapped
 }
 
-// Name returns the initializer or process's configured name or `<unnamed>` if one was not
-// supplied.
+// Name returns the process's configured name or `<unnamed>` if one was not supplied.
 func (m *Meta) Name() string {
 	if m.options.name == "" {
 		return "<unnamed>"
@@ -64,7 +63,7 @@ func (m *Meta) Name() string {
 	return m.options.name
 }
 
-// Metadata returns the initializer or process's configured metadata.
+// Metadata returns the process's configured metadata.
 func (m *Meta) Metadata() map[string]interface{} {
 	return m.options.metadata
 }
@@ -89,33 +88,33 @@ func (m *Meta) Init(ctx context.Context) (err error) {
 	return nil
 }
 
-// Start invokes the wrapped value's Start method.
+// Run invokes the wrapped value's Run method.
 //
 // A timeout error will be returned if the associated health instance does not report
-// healthy within the configured startup timeout, or if Start method does not unblock
+// healthy within the configured startup timeout, or if Run method does not unblock
 // after the meta instance's Stop method is called within the configured shutdown
 // timeout.
 //
-// A canned error will also be returned if the underlying Start method unblocks with a
+// A canned error will also be returned if the underlying Run method unblocks with a
 // nil value without Stop being called  and the meta was not configured with the silent
 // exit flag.
 //
 // This method will no-op if the meta instance was not initialized.
-func (m *Meta) Start(ctx context.Context) error {
-	if process, ok := m.wrapped.(Process); ok && m.shouldRunStart() {
+func (m *Meta) Run(ctx context.Context) error {
+	if runner, ok := m.wrapped.(Runner); ok && m.shouldRun() {
 		defer func() {
 			m.mu.Lock()
 			defer m.mu.Unlock()
 			m.running = false
 		}()
 
-		return m.start(ctx, process)
+		return m.run(ctx, runner)
 	}
 
 	return nil
 }
 
-func (m *Meta) shouldRunStart() bool {
+func (m *Meta) shouldRun() bool {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -127,12 +126,12 @@ func (m *Meta) shouldRunStart() bool {
 	return true
 }
 
-func (m *Meta) start(ctx context.Context, process Process) error {
+func (m *Meta) run(ctx context.Context, runner Runner) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
 	result := runAsync(ctx, func(ctx context.Context) error {
-		return m.makeRunWithTimeout(ctx, "start", process.Start, nil, 0)
+		return m.makeRunWithTimeout(ctx, "run", runner.Run, nil, 0)
 	})
 
 	healthStatusChannel, err := m.watchHealthStatus()
@@ -219,7 +218,7 @@ func (m *Meta) watchHealthComponentStatus(components []*HealthComponentStatus) c
 	return timedOut
 }
 
-// handleResult is invoked after a value is received from the underlying start method.
+// handleResult is invoked after a value is received from the underlying run method.
 // This will mark the meta instance as stopping, and determine the appropriate error
 // value.
 func (m *Meta) handleResult(ctx context.Context, err error) error {
@@ -259,8 +258,8 @@ func (m *Meta) Stop(ctx context.Context) error {
 
 	defer close(m.stopped)
 
-	if process, ok := m.wrapped.(Stoppable); ok {
-		return m.makeRunWithTimeout(ctx, "stop", process.Stop, m.options.stopClock, m.options.stopTimeout)
+	if stopper, ok := m.wrapped.(Stopper); ok {
+		return m.makeRunWithTimeout(ctx, "stop", stopper.Stop, m.options.stopClock, m.options.stopTimeout)
 	}
 
 	return nil
