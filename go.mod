@@ -1,6 +1,6 @@
 module github.com/go-nacelle/process
 
-go 1.15
+go 1.16
 
 require (
 	github.com/derision-test/glock v0.0.0-20210104224233-d43216fa53a3
