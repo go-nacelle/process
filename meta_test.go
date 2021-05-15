@@ -11,6 +11,13 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestMetaName(t *testing.T) {
+	wrapped := NewMockMaximumProcess()
+	meta := newMeta(wrapped)
+
+	assert.Equal(t, "<unnamed *process.MockMaximumProcess>", meta.Name())
+}
+
 func TestMetaInit(t *testing.T) {
 	wrapped := NewMockMaximumProcess()
 	meta := newMeta(wrapped)

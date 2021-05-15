@@ -3,6 +3,7 @@ package process
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 	"time"
 
@@ -54,10 +55,10 @@ func (m *Meta) Wrapped() interface{} {
 	return m.wrapped
 }
 
-// Name returns the process's configured name or `<unnamed>` if one was not supplied.
+// Name returns the process's configured name or `<unnamed {type}>` if one was not supplied.
 func (m *Meta) Name() string {
 	if m.options.name == "" {
-		return "<unnamed>"
+		return fmt.Sprintf("<unnamed %T>", m.wrapped)
 	}
 
 	return m.options.name
