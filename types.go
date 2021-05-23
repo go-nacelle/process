@@ -22,7 +22,6 @@ type Runner interface {
 	Run(ctx context.Context) error
 }
 
-// TODO
 // Stopper wraps a process with way to signal graceful exit.
 type Stopper interface {
 	// Stop is the hook invoked on a running process immediately prior to the
