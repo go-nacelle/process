@@ -189,7 +189,6 @@ func (b *machineBuilder) buildRun(container *Container) streamErrorFunc {
 
 	runFinalizers := mapMetaParallel(container.Meta(), func(m *Meta) streamErrorFunc {
 		return toStreamErrorFunc(func(ctx context.Context) error {
-			// TODO - does this neglect values from the original ctx?
 			return m.Finalize(context.Background())
 		})
 	})
