@@ -151,6 +151,8 @@ func (b *machineBuilder) buildRun(container *Container) streamErrorFunc {
 
 			for {
 				select {
+				case <-ctx.Done():
+					return ctx.Err()
 				case <-ch:
 				case <-healthCheckCtx.Done():
 					return ErrHealthCheckCanceled
@@ -201,7 +203,7 @@ func (b *machineBuilder) buildRun(container *Container) streamErrorFunc {
 }
 
 // buildShutdown creates a function that invokes the Stop function of each process registered
-//to the given container. Processes registered to the same priority are stopped in parallel and
+// to the given container. Processes registered to the same priority are stopped in parallel and
 // processes with a higher priority are stopped before those registered to a lower priority.
 func (b *machineBuilder) buildShutdown(container *Container) streamErrorFunc {
 	var stopEachPriority []streamErrorFunc

@@ -189,10 +189,6 @@ func TestRunMultipleProcesses(t *testing.T) {
 	))
 }
 
-func TestRunShutdownDuringInitialization(t *testing.T) {
-	// TODO - write test
-}
-
 func TestRunMultipleFinalizingProcesses(t *testing.T) {
 	health := NewHealth()
 	trace := make(chan string, 72)
@@ -570,8 +566,22 @@ func TestRunProcessRunError(t *testing.T) {
 	))
 }
 
-func TestRunUnhealthyProcess(t *testing.T) {
-	// TODO - write test
+func TestCancelContextOnUnhealthyProcess(t *testing.T) {
+	health := NewHealth()
+	trace := make(chan string, 72)
+	builder := NewContainerBuilder()
+
+	process := NewMockMaximumProcess()
+	process.InitFunc.SetDefaultHook(traceInit(health, trace, "a", 0, nil))
+	process.RunFunc.SetDefaultHook(traceRun(nil, trace, "a", 0, nil)) // note: no health here
+	builder.RegisterProcess(process, WithMetaHealthKey(testHealthKey("a", 0)))
+
+	ctx, cancel := context.WithCancel(context.Background())
+	state := Run(ctx, builder.Build(WithMetaHealth(health)), WithHealth(health))
+	assertChannelContents(t, readStringChannel(forwardN(trace, 2)), seq("a.0.init", "a.0.run"))
+	cancel()
+	require.False(t, state.Wait(context.Background()))
+	close(trace)
 }
 
 func TestRunErrorsDuringShutdown(t *testing.T) {
