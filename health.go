@@ -3,104 +3,121 @@ package process
 import (
 	"fmt"
 	"sync"
-	"time"
-
-	"github.com/derision-test/glock"
 )
 
-type Health interface {
-	Reasons() []Reason
-	LastChange() time.Duration
-	AddReason(key interface{}) error
-	RemoveReason(key interface{}) error
-	HasReason(key interface{}) bool
+// Health is an aggregate container reporting the current health status of
+// individual application components.
+type Health struct {
+	mu          sync.Mutex
+	components  map[interface{}]*HealthComponentStatus
+	subscribers []chan<- struct{}
 }
 
-type health struct {
-	reasons    map[interface{}]Reason
-	lastChange time.Time
-	mutex      sync.RWMutex
-	clock      glock.Clock
+// NewHealth creates an empty Health instance.
+func NewHealth() *Health {
+	return &Health{
+		components: map[interface{}]*HealthComponentStatus{},
+	}
 }
 
-type Reason struct {
-	Key   interface{}
-	Added time.Time
+// Healthy returns true if all registered components are healthy.
+func (h *Health) Healthy() bool {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	for _, component := range h.components {
+		if !component.healthy {
+			return false
+		}
+	}
+
+	return true
 }
 
-func NewHealth(configs ...HealthConfigFunc) Health {
-	h := &health{
-		reasons: map[interface{}]Reason{},
-		clock:   glock.NewRealClock(),
+// Subscribe returns a notification channel that receives a value whenever
+// the set of components change, or the status of a component changes. This
+// method also returns a cancellation function that should be called once
+// the user wishes to unsubscribe.
+func (h *Health) Subscribe() (<-chan struct{}, func()) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	n := 0
+	for n < len(h.subscribers) && h.subscribers[n] != nil {
+		n++
 	}
 
-	for _, f := range configs {
-		f(h)
+	ch := make(chan struct{}, 1)
+	ch <- struct{}{}
+	h.subscribers = append(h.subscribers, ch)
+
+	unsubscribe := func() {
+		h.mu.Lock()
+		h.subscribers[n] = nil
+		h.mu.Unlock()
 	}
 
-	h.lastChange = h.clock.Now()
-	return h
+	var once sync.Once
+	return ch, func() { once.Do(unsubscribe) }
 }
 
-func (h *health) Reasons() []Reason {
-	reasons := []Reason{}
-	for _, reason := range h.reasons {
-		reasons = append(reasons, reason)
-	}
+// Get returns the component status value registered to the given key.
+func (h *Health) Get(key interface{}) (*HealthComponentStatus, bool) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
 
-	return reasons
+	component, ok := h.components[key]
+	return component, ok
 }
 
-func (h *health) LastChange() time.Duration {
-	return h.clock.Now().Sub(h.lastChange)
+// GetAll returns the component status values registered to the given keys.
+func (h *Health) GetAll(keys ...interface{}) ([]*HealthComponentStatus, error) {
+	if len(keys) == 0 {
+		return nil, nil
+	}
+
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	components := make([]*HealthComponentStatus, 0, len(keys))
+	for _, key := range keys {
+		component, ok := h.components[key]
+		if !ok {
+			return nil, fmt.Errorf("health component %q not registered", key)
+		}
+
+		components = append(components, component)
+	}
+
+	return components, nil
 }
 
-func (h *health) AddReason(key interface{}) error {
-	h.mutex.Lock()
-	defer h.mutex.Unlock()
+// Register creates and returns a new component status value for the given key.
+// It an error to register the same key twice.
+func (h *Health) Register(key interface{}) (*HealthComponentStatus, error) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
 
-	if _, ok := h.reasons[key]; ok {
-		return fmt.Errorf("reason %s already registered", key)
+	if _, ok := h.components[key]; ok {
+		return nil, ErrHealthComponentAlreadyRegistered
 	}
 
-	now := h.clock.Now()
-
-	if len(h.reasons) == 0 {
-		h.lastChange = now
-	}
-
-	h.reasons[key] = Reason{
-		Key:   key,
-		Added: now,
-	}
-
-	return nil
+	component := newHealthComponentStatus(h, key)
+	h.components[key] = component
+	h.notify()
+	return component, nil
 }
 
-func (h *health) RemoveReason(key interface{}) error {
-	h.mutex.Lock()
-	defer h.mutex.Unlock()
+// notify writes a signal to all subscribed channels. Callers MUST lock b.mu.
+func (h *Health) notify() {
+	for _, subscriber := range h.subscribers {
+		if subscriber == nil {
+			continue
+		}
 
-	if _, ok := h.reasons[key]; !ok {
-		return fmt.Errorf("reason %s not registered", key)
+		select {
+		case subscriber <- struct{}{}:
+		default:
+		}
 	}
-
-	delete(h.reasons, key)
-
-	if len(h.reasons) == 0 {
-		h.lastChange = h.clock.Now()
-	}
-
-	return nil
-}
-
-func (h *health) HasReason(key interface{}) bool {
-	h.mutex.Lock()
-	defer h.mutex.Unlock()
-
-	if _, ok := h.reasons[key]; ok {
-		return true
-	}
-
-	return false
 }

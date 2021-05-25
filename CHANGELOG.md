@@ -4,20 +4,22 @@
 
 ### Added
 
-- Added `Finalize` support to `Process` interface. [#5](https://github.com/go-nacelle/process/pull/5)
-- Added `WithInitializerContextFilter` and `WithProcessContextFilter`. [#5](https://github.com/go-nacelle/process/pull/5)
-- Added `WithInitializerPriority`. [#9](https://github.com/go-nacelle/process/pull/9)
-- Added `WithInjectHook` and `WithHealth`. [#14](https://github.com/go-nacelle/process/pull/14)
-- Added `Logger` interface, `LogFields` type, and `NilLogger` variable. [#15](https://github.com/go-nacelle/process/pull/15)
+- The `Finalize` methods on process instances are now invoked when defined. [#5](https://github.com/go-nacelle/process/pull/5)
+- Added `WithInjecter` and `WithHealth`. [#14](https://github.com/go-nacelle/process/pull/14), [#16](https://github.com/go-nacelle/process/pull/16)
+- Added `Logger` interface, `LogFields` type, and `NilLogger` variable, and `WithMetaLogger` method. [#15](https://github.com/go-nacelle/process/pull/15), [#16](https://github.com/go-nacelle/process/pull/16)
 
 ### Changed
 
 - Added context parameters to `Init`, `Start`, `Stop`, and `Finalize` methods. [#5](https://github.com/go-nacelle/process/pull/5)
-- Changed signature of `InitializerFunc`. [#5](https://github.com/go-nacelle/process/pull/5)
 - Removed config parameters from `Init` methods. [#7](https://github.com/go-nacelle/process/pull/7)
-- Renamed `WithPriority` to `WithProcessPriority`. [#9](https://github.com/go-nacelle/process/pull/9)
 - The `Init` methods of initializers and processors registered at the same priority initializer or process priority are now called concurrently. [#9](https://github.com/go-nacelle/process/pull/9)
-- Changed signature of `NewRunner`. [#14](https://github.com/go-nacelle/process/pull/14)
+- Initializers are now invoked before the processes of the same priority, but after the processes of the previous priority. [#16](https://github.com/go-nacelle/process/pull/16)
+- Renamed `Process` to `Runner` and its `Start` method to `Run`. [#16](https://github.com/go-nacelle/process/pull/16)
+- Extracted the `Stop` method from the `Runner` into a `Stopper` interface. [#16](https://github.com/go-nacelle/process/pull/16)
+- The `Runner` interface was replaced with a `Run` function returning a `State` value that abstracts application shutdown. [#16](https://github.com/go-nacelle/process/pull/16)
+- The `ProcessContainer`, `ProcessMeta`, and `InitializerMeta` interfaces were replaced with `Container`, `ContainerBuilder`, and `Meta` structs. This localizes the differences between a process and an interface to registration (and not execution). [#16](https://github.com/go-nacelle/process/pull/16)
+- The `Health` interface was replaced with `Health` and `HealthComponentStatus` structs. [#16](https://github.com/go-nacelle/process/pull/16)
+- Renamed `With{Initializer,Process}{Option}` to `WithMeta{Option}`, `WithProcessLogFields` to `WithMetadata`, `InjectHook` to `Injecter`, and `WithSilentExit` to `WithEarlyExit`. [#16](https://github.com/go-nacelle/process/pull/16)
 
 ### Removed
 
@@ -25,6 +27,7 @@
 - Removed mocks package. [#11](https://github.com/go-nacelle/process/pull/11)
 - Removed dependency on [go-nacelle/service](https://github.com/go-nacelle/service). [#14](https://github.com/go-nacelle/process/pull/14)
 - Removed dependency on [go-nacelle/log](https://github.com/go-nacelle/log). [#15](https://github.com/go-nacelle/process/pull/15)
+- Removed now irrelevant options `WithStartTimeout`, `WithHealthCheckInterval`, and `WithShutdownTimeout`. [#16](https://github.com/go-nacelle/process/pull/16)
 
 ## [v1.1.0] - 2020-10-03
 
