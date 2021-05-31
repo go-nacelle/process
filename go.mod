@@ -1,4 +1,4 @@
-module github.com/go-nacelle/process
+module github.com/go-nacelle/process/v2
 
 go 1.16
 
