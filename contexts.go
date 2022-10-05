@@ -6,7 +6,7 @@ type healthKeyType struct{}
 
 var healthKey = healthKeyType{}
 
-func HealthWithContext(ctx context.Context, health *Health) context.Context {
+func ContextWithHealth(ctx context.Context, health *Health) context.Context {
 	return context.WithValue(ctx, healthKey, health)
 }
 

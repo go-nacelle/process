@@ -24,7 +24,7 @@ func TestHealthWithAndFromContext(t *testing.T) {
 		status.Update(true)
 
 		ctx := context.Background()
-		ctx = HealthWithContext(ctx, h)
+		ctx = ContextWithHealth(ctx, h)
 
 		ctxHealth := HealthFromContext(ctx)
 		require.NotNil(t, ctxHealth)
