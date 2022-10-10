@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [v2.0.0] - 2021-05-31
+
 ### Added
 
 - The `Finalize` methods on process instances are now invoked when defined. [#5](https://github.com/go-nacelle/process/pull/5)
@@ -79,7 +81,7 @@
 
 - Migrated from [efritz/nacelle](https://github.com/efritz/nacelle).
 
-[Unreleased]: https://github.com/go-nacelle/process/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/go-nacelle/process/compare/v2.0.0...HEAD
 [go-nacelle/config@v1.0.0]: https://github.com/go-nacelle/config/releases/tag/v1.0.0
 [go-nacelle/config@v1.2.1]: https://github.com/go-nacelle/config/releases/tag/v1.2.1
 [go-nacelle/log@v1.0.0]: https://github.com/go-nacelle/log/releases/tag/v1.0.0
@@ -89,3 +91,4 @@
 [v1.0.0]: https://github.com/go-nacelle/process/releases/tag/v1.0.0
 [v1.0.1]: https://github.com/go-nacelle/process/compare/v1.0.0...v1.0.1
 [v1.1.0]: https://github.com/go-nacelle/process/compare/v1.0.1...v1.1.0
+[v2.0.0]: https://github.com/go-nacelle/process/compare/v1.1.0...v2.0.0

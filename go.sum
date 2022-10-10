@@ -5,8 +5,8 @@ github.com/dave/jennifer v1.4.1/go.mod h1:7jEdnm+qBcxl8PC0zyp7vxcpSRnzXSt9r39tpT
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
-github.com/derision-test/glock v0.0.0-20210104224233-d43216fa53a3 h1:NXlhrHqDhzSvtXMloWKbJe09L4/4waXkJ4kA4lMqAsA=
-github.com/derision-test/glock v0.0.0-20210104224233-d43216fa53a3/go.mod h1:jKtLdBMrF+XQatqvg46wiWdDfDSSDjdhO4dOM2FX9H4=
+github.com/derision-test/glock v0.0.0-20210316032053-f5b74334bb29 h1:O07j7ewg0eFHRx+7bxCA/7z86HJexl7HLY9kyVMmPDo=
+github.com/derision-test/glock v0.0.0-20210316032053-f5b74334bb29/go.mod h1:jKtLdBMrF+XQatqvg46wiWdDfDSSDjdhO4dOM2FX9H4=
 github.com/derision-test/go-mockgen v0.0.0-20201001011750-eb2233de6342 h1:EyNcBkaw2jkJxYuCN+Aa1fTOohkjTRK9Ltapi1SWcFk=
 github.com/derision-test/go-mockgen v0.0.0-20201001011750-eb2233de6342/go.mod h1:FGP9Qq+gWtYK9ine/2Bzeww8SXS7mD1wypNl1Q3AKN0=
 github.com/dustin/go-humanize v1.0.0/go.mod h1:HtrtbFcZ19U5GC7JDqmcUSB87Iq5E25KnS6fMYU6eOk=
