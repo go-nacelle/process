@@ -41,8 +41,8 @@ func (m *machine) runAsync(ctx context.Context, fn streamErrorFunc) {
 	m.wg.Add(1)
 
 	go func() {
-		m.wg.Wait()
 		m.closeOnce.Do(func() {
+			m.wg.Wait()
 			close(m.ch)
 		})
 	}()
