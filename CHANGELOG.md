@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+## [v2.0.1] - 2022-10-10
+
+### Added
+
+- Added `ContextWithHealth` and `HealthFromContext`. [#18](https://github.com/go-nacelle/process/pull/18)
+
+### Fixed
+
+- Fixed wait group race condition. [#17](https://github.com/go-nacelle/process/pull/17)
+
 ## [v2.0.0] - 2021-05-31
 
 ### Added
@@ -81,7 +91,7 @@
 
 - Migrated from [efritz/nacelle](https://github.com/efritz/nacelle).
 
-[Unreleased]: https://github.com/go-nacelle/process/compare/v2.0.0...HEAD
+[Unreleased]: https://github.com/go-nacelle/process/compare/v2.0.1...HEAD
 [go-nacelle/config@v1.0.0]: https://github.com/go-nacelle/config/releases/tag/v1.0.0
 [go-nacelle/config@v1.2.1]: https://github.com/go-nacelle/config/releases/tag/v1.2.1
 [go-nacelle/log@v1.0.0]: https://github.com/go-nacelle/log/releases/tag/v1.0.0
@@ -92,3 +102,4 @@
 [v1.0.1]: https://github.com/go-nacelle/process/compare/v1.0.0...v1.0.1
 [v1.1.0]: https://github.com/go-nacelle/process/compare/v1.0.1...v1.1.0
 [v2.0.0]: https://github.com/go-nacelle/process/compare/v1.1.0...v2.0.0
+[v2.0.1]: https://github.com/go-nacelle/process/compare/v2.0.0...v2.0.1
