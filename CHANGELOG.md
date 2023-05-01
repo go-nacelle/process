@@ -2,9 +2,11 @@
 
 ## [Unreleased]
 
+## [v2.1.0] - 2023-04-30
+
 ### Added
 
-- Added `State.Errors`.
+- Added `State.Errors`. [#20](https://github.com/go-nacelle/process/pull/20)
 
 ## [v2.0.1] - 2022-10-10
 
@@ -95,7 +97,7 @@
 
 - Migrated from [efritz/nacelle](https://github.com/efritz/nacelle).
 
-[Unreleased]: https://github.com/go-nacelle/process/compare/v2.0.1...HEAD
+[Unreleased]: https://github.com/go-nacelle/process/compare/v2.1.0...HEAD
 [go-nacelle/config@v1.0.0]: https://github.com/go-nacelle/config/releases/tag/v1.0.0
 [go-nacelle/config@v1.2.1]: https://github.com/go-nacelle/config/releases/tag/v1.2.1
 [go-nacelle/log@v1.0.0]: https://github.com/go-nacelle/log/releases/tag/v1.0.0
@@ -107,3 +109,4 @@
 [v1.1.0]: https://github.com/go-nacelle/process/compare/v1.0.1...v1.1.0
 [v2.0.0]: https://github.com/go-nacelle/process/compare/v1.1.0...v2.0.0
 [v2.0.1]: https://github.com/go-nacelle/process/compare/v2.0.0...v2.0.1
+[v2.1.0]: https://github.com/go-nacelle/process/compare/v2.0.1...v2.1.0
