@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -18,6 +19,7 @@ func TestRunInitializer(t *testing.T) {
 
 	state := Run(context.Background(), builder.Build())
 	require.True(t, state.Wait(context.Background()))
+	require.Empty(t, state.Errors())
 
 	close(trace)
 	assertChannelContents(t, readStringChannel(trace), seq("a.0.init"))
@@ -34,6 +36,7 @@ func TestRunFinalizingInitializer(t *testing.T) {
 
 	state := Run(context.Background(), builder.Build())
 	require.True(t, state.Wait(context.Background()))
+	require.Empty(t, state.Errors())
 
 	close(trace)
 	assertChannelContents(t, readStringChannel(trace), seq("a.0.init", "a.0.finalize"))
@@ -53,6 +56,7 @@ func TestRunMultipleInitializers(t *testing.T) {
 
 	state := Run(context.Background(), builder.Build())
 	require.True(t, state.Wait(context.Background()))
+	require.Empty(t, state.Errors())
 
 	close(trace)
 	assertChannelContents(t, readStringChannel(trace), seq(
@@ -85,6 +89,7 @@ func TestRunMultipleFinalizingInitializers(t *testing.T) {
 
 	state.Shutdown(context.Background())
 	require.True(t, state.Wait(context.Background()))
+	require.Empty(t, state.Errors())
 
 	close(trace)
 	assertChannelContents(t, readStringChannel(trace), seq(
@@ -108,6 +113,7 @@ func TestRunMultipleInitializersWithPriorityZero(t *testing.T) {
 
 	state := Run(context.Background(), builder.Build())
 	require.True(t, state.Wait(context.Background()))
+	require.Empty(t, state.Errors())
 
 	close(trace)
 	assertChannelContents(t, readStringChannel(trace), seq("a.0.init", "b.0.init", "c.0.init", "d.0.init"))
@@ -128,6 +134,7 @@ func TestRunProcess(t *testing.T) {
 	assertChannelContents(t, readStringChannel(forwardN(trace, 2)), seq("a.0.init", "a.0.run"))
 	state.Shutdown(context.Background())
 	require.True(t, state.Wait(context.Background()))
+	require.Empty(t, state.Errors())
 	close(trace)
 	assertChannelContents(t, readStringChannel(trace), seq("a.0.stop"))
 }
@@ -148,6 +155,7 @@ func TestRunFinalizingProcess(t *testing.T) {
 	assertChannelContents(t, readStringChannel(forwardN(trace, 2)), seq("a.0.init", "a.0.run"))
 	state.Shutdown(context.Background())
 	require.True(t, state.Wait(context.Background()))
+	require.Empty(t, state.Errors())
 	close(trace)
 	assertChannelContents(t, readStringChannel(trace), seq("a.0.stop", "a.0.finalize"))
 }
@@ -180,6 +188,7 @@ func TestRunMultipleProcesses(t *testing.T) {
 
 	state.Shutdown(context.Background())
 	require.True(t, state.Wait(context.Background()))
+	require.Empty(t, state.Errors())
 
 	close(trace)
 	assertChannelContents(t, readStringChannel(trace), seq(
@@ -218,6 +227,7 @@ func TestRunMultipleFinalizingProcesses(t *testing.T) {
 
 	state.Shutdown(context.Background())
 	require.True(t, state.Wait(context.Background()))
+	require.Empty(t, state.Errors())
 
 	close(trace)
 	assertChannelContents(t, readStringChannel(trace), seq(
@@ -270,6 +280,7 @@ func TestRunMultipleFinalizingInitializersAndProcesses(t *testing.T) {
 
 	state.Shutdown(context.Background())
 	require.True(t, state.Wait(context.Background()))
+	require.Empty(t, state.Errors())
 
 	close(trace)
 	assertChannelContents(t, readStringChannel(trace), seq(
@@ -336,6 +347,7 @@ func TestRunProcessExitsWithEarlyExit(t *testing.T) {
 
 	state.Shutdown(context.Background())
 	require.True(t, state.Wait(context.Background()))
+	require.Empty(t, state.Errors())
 
 	close(trace)
 	assertChannelContents(t, readStringChannel(trace), seq(
@@ -398,6 +410,14 @@ func TestRunProcessExitsWithoutEarlyExit(t *testing.T) {
 
 	require.False(t, state.Wait(context.Background()))
 
+	assert.ElementsMatch(t,
+		state.Errors(),
+		[]error{
+			fmt.Errorf("health check canceled"),
+			fmt.Errorf("unexpected return from process"),
+		},
+	)
+
 	close(trace)
 	assertChannelContents(t, readStringChannel(trace), seq(
 		unordered("a.2.stop", "b.2.stop", "d.2.stop"),
@@ -442,6 +462,18 @@ func TestRunInitializerInitError(t *testing.T) {
 	))
 
 	require.False(t, state.Wait(context.Background()))
+
+	assert.ElementsMatch(t,
+		state.Errors(),
+		[]error{
+			&opError{
+				source:   fmt.Errorf("oops1"),
+				opName:   "init",
+				message:  "failed",
+				metaName: "<unnamed *process.MockMaximumProcess>",
+			},
+		},
+	)
 
 	close(trace)
 	assertChannelContents(t, readStringChannel(trace), seq(
@@ -495,6 +527,18 @@ func TestRunProcessInitError(t *testing.T) {
 	))
 
 	require.False(t, state.Wait(context.Background()))
+
+	assert.ElementsMatch(t,
+		state.Errors(),
+		[]error{
+			&opError{
+				source:   fmt.Errorf("oops1"),
+				opName:   "init",
+				message:  "failed",
+				metaName: "<unnamed *process.MockMaximumProcess>",
+			},
+		},
+	)
 
 	close(trace)
 	assertChannelContents(t, readStringChannel(trace), seq(
@@ -553,6 +597,19 @@ func TestRunProcessRunError(t *testing.T) {
 
 	require.False(t, state.Wait(context.Background()))
 
+	assert.ElementsMatch(t,
+		state.Errors(),
+		[]error{
+			fmt.Errorf("health check canceled"),
+			&opError{
+				source:   fmt.Errorf("oops1"),
+				metaName: "<unnamed *process.MockMaximumProcess>",
+				opName:   "run",
+				message:  "failed",
+			},
+		},
+	)
+
 	close(trace)
 	assertChannelContents(t, readStringChannel(trace), seq(
 		unordered("a.2.stop", "b.2.stop", "d.2.stop"),
@@ -589,23 +646,48 @@ func TestRunErrorsDuringShutdown(t *testing.T) {
 	trace := make(chan string, 72)
 	builder := NewContainerBuilder()
 
+	var expectedErrs []error
 	for _, value := range []string{"w", "x", "y", "z"} {
 		for i := 1; i <= 3; i++ {
+			sourceErr := fmt.Errorf("%s.%d", value, i)
 			initializer := NewMockMaximumProcess()
 			initializer.InitFunc.SetDefaultHook(traceInit(nil, trace, value, i, nil))
-			initializer.FinalizeFunc.SetDefaultHook(traceFinalize(trace, value, i, fmt.Errorf("%s.%d", value, i)))
+			initializer.FinalizeFunc.SetDefaultHook(traceFinalize(trace, value, i, sourceErr))
 			builder.RegisterInitializer(initializer, WithMetaPriority(i))
+
+			expectedErrs = append(expectedErrs, &opError{
+				source:   sourceErr,
+				opName:   "finalize",
+				message:  "failed",
+				metaName: "<unnamed *process.MockMaximumProcess>",
+			})
 		}
 	}
 
 	for _, value := range []string{"a", "b", "c", "d"} {
 		for i := 1; i <= 3; i++ {
+			sourceErr := fmt.Errorf("%s.%d", value, i)
 			process := NewMockMaximumProcess()
 			process.InitFunc.SetDefaultHook(traceInit(health, trace, value, i, nil))
 			process.RunFunc.SetDefaultHook(traceRun(health, trace, value, i, nil))
-			process.StopFunc.SetDefaultHook(traceStop(trace, value, i, fmt.Errorf("%s.%d", value, i)))
-			process.FinalizeFunc.SetDefaultHook(traceFinalize(trace, value, i, fmt.Errorf("%s.%d", value, i)))
+			process.StopFunc.SetDefaultHook(traceStop(trace, value, i, sourceErr))
+			process.FinalizeFunc.SetDefaultHook(traceFinalize(trace, value, i, sourceErr))
 			builder.RegisterProcess(process, WithMetaPriority(i), WithMetaHealthKey(testHealthKey(value, i)))
+
+			expectedErrs = append(expectedErrs, []error{
+				&opError{
+					source:   sourceErr,
+					opName:   "stop",
+					message:  "failed",
+					metaName: "<unnamed *process.MockMaximumProcess>",
+				},
+				&opError{
+					source:   sourceErr,
+					opName:   "finalize",
+					message:  "failed",
+					metaName: "<unnamed *process.MockMaximumProcess>",
+				},
+			}...)
 		}
 	}
 
@@ -622,6 +704,8 @@ func TestRunErrorsDuringShutdown(t *testing.T) {
 
 	state.Shutdown(context.Background())
 	require.False(t, state.Wait(context.Background()))
+
+	assert.ElementsMatch(t, state.Errors(), expectedErrs)
 
 	close(trace)
 	assertChannelContents(t, readStringChannel(trace), []interface{}{
